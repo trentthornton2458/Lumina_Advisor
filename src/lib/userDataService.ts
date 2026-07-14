@@ -179,7 +179,9 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
 export async function saveContacts(uid: string, contacts: Contact[]) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'contacts');
-    await setDoc(ref, { items: contacts });
+    // Contacts carry several optional fields that get set to `undefined` rather than omitted -
+    // Firestore rejects `undefined` field values, so round-trip through JSON to strip them before writing.
+    await setDoc(ref, { items: JSON.parse(JSON.stringify(contacts)) });
   } catch (error) {
     console.error('Error saving contacts to Firestore:', error);
   }
@@ -188,7 +190,9 @@ export async function saveContacts(uid: string, contacts: Contact[]) {
 export async function saveNotes(uid: string, notes: MeetingNote[]) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'notes');
-    await setDoc(ref, { items: notes });
+    // Notes carry several optional fields that get set to `undefined` rather than omitted -
+    // Firestore rejects `undefined` field values, so round-trip through JSON to strip them before writing.
+    await setDoc(ref, { items: JSON.parse(JSON.stringify(notes)) });
   } catch (error) {
     console.error('Error saving notes to Firestore:', error);
   }
@@ -197,7 +201,9 @@ export async function saveNotes(uid: string, notes: MeetingNote[]) {
 export async function saveTasks(uid: string, tasks: TaskReminder[]) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'tasks');
-    await setDoc(ref, { items: tasks });
+    // Tasks carry several optional fields that get set to `undefined` rather than omitted -
+    // Firestore rejects `undefined` field values, so round-trip through JSON to strip them before writing.
+    await setDoc(ref, { items: JSON.parse(JSON.stringify(tasks)) });
   } catch (error) {
     console.error('Error saving tasks to Firestore:', error);
   }
@@ -206,7 +212,9 @@ export async function saveTasks(uid: string, tasks: TaskReminder[]) {
 export async function saveProfile(uid: string, profile: MyselfProfile) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'profile');
-    await setDoc(ref, profile);
+    // Profile carries several optional fields that get set to `undefined` rather than omitted -
+    // Firestore rejects `undefined` field values, so round-trip through JSON to strip them before writing.
+    await setDoc(ref, JSON.parse(JSON.stringify(profile)));
   } catch (error) {
     console.error('Error saving profile to Firestore:', error);
   }
@@ -215,7 +223,10 @@ export async function saveProfile(uid: string, profile: MyselfProfile) {
 export async function saveCompanies(uid: string, companies: Company[]) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'companies');
-    await setDoc(ref, { items: companies });
+    // Companies carry several optional fields (e.g. website: value.trim() || undefined) that get
+    // set to `undefined` rather than omitted - Firestore rejects `undefined` field values, so
+    // round-trip through JSON to strip them before writing.
+    await setDoc(ref, { items: JSON.parse(JSON.stringify(companies)) });
   } catch (error) {
     console.error('Error saving companies to Firestore:', error);
   }
@@ -224,7 +235,9 @@ export async function saveCompanies(uid: string, companies: Company[]) {
 export async function saveSops(uid: string, sops: SOPDocument[]) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'sops');
-    await setDoc(ref, { items: sops });
+    // SOPs carry several optional fields that get set to `undefined` rather than omitted -
+    // Firestore rejects `undefined` field values, so round-trip through JSON to strip them before writing.
+    await setDoc(ref, { items: JSON.parse(JSON.stringify(sops)) });
   } catch (error) {
     console.error('Error saving sops to Firestore:', error);
   }
@@ -254,7 +267,9 @@ export async function saveBehavioralProfiles(uid: string, profiles: BehavioralPr
 export async function saveSettings(uid: string, settings: UserSettings) {
   try {
     const ref = doc(db, 'users', uid, 'data', 'settings');
-    await setDoc(ref, settings);
+    // Settings may carry optional fields set to `undefined` rather than omitted -
+    // Firestore rejects `undefined` field values, so round-trip through JSON to strip them before writing.
+    await setDoc(ref, JSON.parse(JSON.stringify(settings)));
   } catch (error) {
     console.error('Error saving settings to Firestore:', error);
   }
