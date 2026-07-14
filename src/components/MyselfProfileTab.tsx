@@ -43,9 +43,21 @@ export default function MyselfProfileTab({
   const [extraDetails, setExtraDetails] = useState(profile.extraDetails || '');
   const [profilePicture, setProfilePicture] = useState(profile.profilePicture || '');
 
+  const MAX_PROFILE_PICTURE_BYTES = 500 * 1024; // 500KB
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image file.', 'error');
+        if (e.target) e.target.value = '';
+        return;
+      }
+      if (file.size > MAX_PROFILE_PICTURE_BYTES) {
+        showToast('Image is too large. Please choose an image under 500KB.', 'error');
+        if (e.target) e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePicture(reader.result as string);
@@ -83,7 +95,14 @@ export default function MyselfProfileTab({
         if (Array.isArray(val)) {
           val = val.join('; ');
         }
-        const escaped = ('' + (val ?? '')).replace(/"/g, '""');
+        let stringVal = '' + (val ?? '');
+        // Neutralize CSV formula injection: if the value starts with a character
+        // that spreadsheet apps (Excel/Google Sheets) interpret as a formula
+        // trigger, prefix it with a leading apostrophe so it's treated as text.
+        if (/^[=+\-@]/.test(stringVal)) {
+          stringVal = `'${stringVal}`;
+        }
+        const escaped = stringVal.replace(/"/g, '""');
         return `"${escaped}"`;
       });
       csvRows.push(values.join(','));
