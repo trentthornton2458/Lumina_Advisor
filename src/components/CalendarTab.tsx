@@ -29,6 +29,35 @@ const MONTHS = [
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Outlook Calendar integration is not wired up to a real Microsoft Graph API yet;
+// this fixture data is shared by the mount-effect restore and handleConnectOutlook mock below.
+const MOCK_OUTLOOK_EVENTS: CalendarEvent[] = [
+  {
+    id: 'out_1',
+    summary: '💼 Outlook: Q3 Board Review Meeting',
+    location: 'Microsoft Teams',
+    start: { dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
+    end: { dateTime: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString() }
+  },
+  {
+    id: 'out_2',
+    summary: '📈 Outlook: Business Scaling Pitch with Investors',
+    location: 'Conference Room C',
+    start: { dateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() },
+    end: { dateTime: new Date(Date.now() + 3.1 * 24 * 60 * 60 * 1000).toISOString() }
+  }
+];
+
+interface PendingEventPayload {
+  summary: string;
+  description: string;
+  location: string;
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+  addToGoogle: boolean;
+  addToLocal: boolean;
+}
+
 export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabProps) {
   const { user } = useAuth();
   
@@ -58,7 +87,7 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
   
   // Custom dialog confirmation popup
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
-  const [pendingEventPayload, setPendingEventPayload] = useState<any>(null);
+  const [pendingEventPayload, setPendingEventPayload] = useState<PendingEventPayload | null>(null);
 
   const selectedYear = currentDate.getFullYear();
   const selectedMonth = currentDate.getMonth();
@@ -74,22 +103,7 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
     const activeOutlookToken = sessionStorage.getItem('lumina_outlook_cal_token');
     if (activeOutlookToken) {
       setOutlookToken(activeOutlookToken);
-      setOutlookEvents([
-        {
-          id: 'out_1',
-          summary: '💼 Outlook: Q3 Board Review Meeting',
-          location: 'Microsoft Teams',
-          start: { dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
-          end: { dateTime: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString() }
-        },
-        {
-          id: 'out_2',
-          summary: '📈 Outlook: Business Scaling Pitch with Investors',
-          location: 'Conference Room C',
-          start: { dateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() },
-          end: { dateTime: new Date(Date.now() + 3.1 * 24 * 60 * 60 * 1000).toISOString() }
-        }
-      ]);
+      setOutlookEvents(MOCK_OUTLOOK_EVENTS);
     }
   }, []);
 
@@ -134,6 +148,10 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
     setSyncError(null);
   };
 
+  // MOCK IMPLEMENTATION: there is no real Microsoft Graph / Outlook OAuth flow wired up here.
+  // This simulates a network round-trip and fabricates a token + fixture events so the rest of
+  // the UI has something to render. The "Connected" badge for Outlook is labeled as a demo in
+  // the UI below to avoid presenting this as a genuine integration.
   const handleConnectOutlook = async () => {
     setIsSyncing(true);
     setSyncError(null);
@@ -142,22 +160,7 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
       const mockToken = 'mock-outlook-token-123';
       setOutlookToken(mockToken);
       sessionStorage.setItem('lumina_outlook_cal_token', mockToken);
-      setOutlookEvents([
-        {
-          id: 'out_1',
-          summary: '💼 Outlook: Q3 Board Review Meeting',
-          location: 'Microsoft Teams',
-          start: { dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
-          end: { dateTime: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString() }
-        },
-        {
-          id: 'out_2',
-          summary: '📈 Outlook: Business Scaling Pitch with Investors',
-          location: 'Conference Room C',
-          start: { dateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() },
-          end: { dateTime: new Date(Date.now() + 3.1 * 24 * 60 * 60 * 1000).toISOString() }
-        }
-      ]);
+      setOutlookEvents(MOCK_OUTLOOK_EVENTS);
     } catch (err: any) {
       setSyncError('Microsoft connection failed.');
     } finally {
@@ -307,9 +310,9 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
     setIsSyncing(true);
     setShowConfirmDialog(false);
 
+    const { summary, description, location, start, end, addToGoogle, addToLocal } = pendingEventPayload;
+
     try {
-      const { summary, description, location, start, end, addToGoogle, addToLocal } = pendingEventPayload;
-      
       // 1. Post to Google Calendar if requested + authorized
       if (addToGoogle && googleToken) {
         await createCalendarEvent(googleToken, {
@@ -320,9 +323,18 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
           end
         });
       }
+    } catch (err: any) {
+      console.error('Error creating Google Calendar event:', err);
+      setSyncError('Failed to publish the schedule entry to Google Calendar. Please try again.');
+      setIsSyncing(false);
+      setPendingEventPayload(null);
+      return;
+    }
 
-      // 2. Post to Local CRM tasks if requested
-      if (addToLocal) {
+    // 2. Post to Local CRM tasks if requested (kept separate from the Google Calendar call above
+    // so a local save failure isn't misreported as a Google Calendar failure, and vice versa)
+    if (addToLocal) {
+      try {
         const localTask: TaskReminder = {
           id: 'task_' + Date.now(),
           title: `[Event] ${summary}${location ? ' at ' + location : ''}`,
@@ -332,24 +344,27 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
           notes: description || undefined
         };
         onAddTask(localTask);
+      } catch (err: any) {
+        console.error('Error saving local CRM task:', err);
+        setSyncError('The event may have published to Google Calendar, but saving the local CRM task failed. Please try again.');
+        setIsSyncing(false);
+        setPendingEventPayload(null);
+        return;
       }
-
-      // Clean up form and reload
-      setEventTitle('');
-      setEventLocation('');
-      setEventDescription('');
-      setIsFormOpen(false);
-      
-      if (googleToken) {
-        await loadGoogleEvents(googleToken);
-      }
-    } catch (err: any) {
-      console.error('Error creating schedule entry:', err);
-      setSyncError('Failed to publish the schedule entry to Google Calendar. Please try again.');
-    } finally {
-      setIsSyncing(false);
-      setPendingEventPayload(null);
     }
+
+    // Clean up form and reload
+    setEventTitle('');
+    setEventLocation('');
+    setEventDescription('');
+    setIsFormOpen(false);
+
+    if (googleToken) {
+      await loadGoogleEvents(googleToken);
+    }
+
+    setIsSyncing(false);
+    setPendingEventPayload(null);
   };
 
   // Get active day items
@@ -469,9 +484,17 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h3 className="text-xs font-bold text-slate-800">Outlook Calendar</h3>
                 {outlookToken ? (
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Connected
-                  </span>
+                  <>
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Connected
+                    </span>
+                    <span
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200"
+                      title="This Outlook integration is simulated and does not connect to a real Microsoft account."
+                    >
+                      Demo
+                    </span>
+                  </>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-550">
                     Not Synced
@@ -479,7 +502,7 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
                 )}
               </div>
               <p className="text-[10px] text-slate-500 truncate mt-1">
-                {outlookToken ? 'Synced with your Outlook Calendar' : 'Sync your Microsoft events'}
+                {outlookToken ? 'Simulated demo data (not a real Outlook connection)' : 'Sync your Microsoft events'}
               </p>
             </div>
           </div>
@@ -925,7 +948,7 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
       {/* Explicit User Confirmation Dialog (MANDATORY for Workspace API mutations) */}
       <AnimatePresence>
         {showConfirmDialog && pendingEventPayload && (
-          <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
