@@ -183,8 +183,20 @@ export default function App() {
           if (data.settings.darkMode !== undefined) setDarkMode(data.settings.darkMode);
           if (data.settings.activeTab !== undefined) setActiveTab(data.settings.activeTab);
           if (data.settings.tabOrder !== null) setTabOrder(data.settings.tabOrder);
-          if (data.settings.setupCompleted !== undefined) setShowSetup(!data.settings.setupCompleted);
         }
+
+        let setupCompleted = false;
+        if (data.settings && data.settings.setupCompleted !== undefined) {
+          setupCompleted = data.settings.setupCompleted;
+        } else {
+          // Fallback check: if user has any existing data in Firestore, they've already completed setup
+          const hasContacts = !!(data.contacts && data.contacts.length > 0);
+          const hasNotes = !!(data.notes && data.notes.length > 0);
+          const hasCompanies = !!(data.companies && data.companies.length > 0);
+          const hasProfile = !!(data.profile && data.profile.name);
+          setupCompleted = hasContacts || hasNotes || hasCompanies || hasProfile;
+        }
+        setShowSetup(!setupCompleted);
 
         isDataLoadedRef.current = true;
         setDataLoading(false);
@@ -344,8 +356,9 @@ export default function App() {
   }, [tabOrder, user]);
 
   useEffect(() => {
+    if (!isDataLoadedRef.current) return;
     localStorage.setItem('lumina_setup_completed', (!showSetup).toString());
-    if (user && isDataLoadedRef.current) {
+    if (user) {
       saveSettings(user.uid, {
         darkMode,
         activeTab,
@@ -823,7 +836,6 @@ export default function App() {
                 <CompanyManager
                   companies={companies}
                   contacts={contacts}
-                  notes={notes}
                   onAddCompany={handleAddCompany}
                   onUpdateCompany={handleUpdateCompany}
                   onDeleteCompany={handleDeleteCompany}
