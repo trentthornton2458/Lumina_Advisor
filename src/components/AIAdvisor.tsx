@@ -6,6 +6,8 @@ import {
   Building2, FileText, Layout, Bookmark
 } from 'lucide-react';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
 import AdvisorReportView from './AdvisorReportView';
 
 interface AIAdvisorProps {
@@ -23,6 +25,7 @@ interface AIAdvisorProps {
 
 export default function AIAdvisor({ contacts, notes, profile, companies, sops, tasks, onAddTask, savedReports, behavioralProfiles, onSaveReport }: AIAdvisorProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   
   const [adviceCategory, setAdviceCategory] = useState<'meetingPrep' | 'frictionRedline' | 'strategicActionList' | 'customTemplate'>('meetingPrep');
   const [selectedContactId, setSelectedContactId] = useState<string>('');
@@ -135,7 +138,7 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
     };
 
     try {
-      const response = await fetch('/api/ai-advice', {
+      const response = await authedFetch('/api/ai-advice', user, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

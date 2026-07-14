@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'motion/react';
-import { 
-  ClipboardList, X, Sparkles, Loader2, CheckCircle2, Circle,
+import {
+  ClipboardList, Sparkles, Loader2, CheckCircle2, Circle,
   User, TrendingUp, TrendingDown, Minus, Clock, AlertTriangle,
-  MessageSquare, Target, FileText
+  Target, FileText
 } from 'lucide-react';
 import { Contact, MeetingNote, TaskReminder, MyselfProfile } from '../types';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
+import ModalShell from './ModalShell';
 
 interface MeetingPrepChecklistProps {
   contact: Contact;
@@ -18,6 +20,7 @@ interface MeetingPrepChecklistProps {
 
 export default function MeetingPrepChecklist({ contact, notes, tasks, profile, onClose }: MeetingPrepChecklistProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [aiTalkingPoints, setAiTalkingPoints] = useState<string[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
@@ -59,7 +62,7 @@ export default function MeetingPrepChecklist({ contact, notes, tasks, profile, o
   const generateAITalkingPoints = async () => {
     setIsLoadingAI(true);
     try {
-      const response = await fetch('/api/ai-advice', {
+      const response = await authedFetch('/api/ai-advice', user, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,43 +150,31 @@ Return ONLY a JSON array of 5 strings, each being a concise talking point. No ma
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-      />
-      
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-      >
-        {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-emerald-50/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-600/20">
-              <ClipboardList size={20} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">Meeting Prep Checklist</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Prepare for your meeting with <span className="font-semibold text-slate-700">{contact.name}</span>
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition">
-            <X size={18} />
+    <ModalShell
+      title="Meeting Prep Checklist"
+      subtitle={<>Prepare for your meeting with <span className="font-semibold text-slate-700">{contact.name}</span></>}
+      icon={<ClipboardList size={20} className="text-white" />}
+      iconWrapperClassName="bg-gradient-to-br from-emerald-600 to-teal-600 shadow-emerald-600/20"
+      headerClassName="from-slate-50 to-emerald-50/30"
+      onClose={onClose}
+      footer={
+        <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <span className="text-xs text-slate-500">
+            {checkedItems.size} of {
+              (lastNote ? 1 : 0) + openTasks.length +
+              (contact.status === 'Bad' ? 1 : 0) + (sentimentTrend === 'declining' ? 1 : 0) +
+              aiTalkingPoints.length + 4
+            } items checked
+          </span>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition"
+          >
+            Close Checklist
           </button>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          
+      }
+    >
           {/* Contact Quick Context */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
@@ -302,25 +293,6 @@ Return ONLY a JSON array of 5 strings, each being a concise talking point. No ma
               <CheckItem id="prep-next-steps" label="Define desired outcomes and next steps before the meeting" />
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <span className="text-xs text-slate-500">
-            {checkedItems.size} of {
-              (lastNote ? 1 : 0) + openTasks.length + 
-              (contact.status === 'Bad' ? 1 : 0) + (sentimentTrend === 'declining' ? 1 : 0) +
-              aiTalkingPoints.length + 4
-            } items checked
-          </span>
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition"
-          >
-            Close Checklist
-          </button>
-        </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

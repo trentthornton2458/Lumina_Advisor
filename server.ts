@@ -3,6 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
+import { requireAuth } from './src/middleware/auth.ts';
 
 dotenv.config();
 
@@ -92,13 +93,28 @@ async function generateContentWithFallback(ai: GoogleGenAI, params: any) {
   throw lastError || new Error('All model attempts exhausted; failed to generate content.');
 }
 
+// Allowlist of `type` values accepted by the flexible /api/ai-advice branch.
+// These are the only values sent by real callers (MeetingTranscriber,
+// EmailDraftGenerator, MeetingPrepChecklist).
+const ALLOWED_FLEXIBLE_TYPES = ['meeting-transcription', 'email-draft', 'meeting-prep'];
+const MAX_FLEXIBLE_PROMPT_LENGTH = 20000;
+
 // AI Advisor API Endpoint
-app.post('/api/ai-advice', async (req, res) => {
+app.post('/api/ai-advice', requireAuth, async (req, res) => {
   try {
     const { userProfile, adviceCategory, selectedNotes, selectedContacts, userPrompt, type, prompt, priorReports, behavioralProfile } = req.body;
 
     // Handle flexible prompt types (transcription, email drafts, etc.)
     if (type && prompt) {
+      // Reject unknown types to keep this from being an open prompt pass-through.
+      if (!ALLOWED_FLEXIBLE_TYPES.includes(type)) {
+        return res.status(400).json({ error: `Unsupported request type: ${String(type)}` });
+      }
+      // Cap prompt length for this branch specifically.
+      if (typeof prompt !== 'string' || prompt.length > MAX_FLEXIBLE_PROMPT_LENGTH) {
+        return res.status(400).json({ error: `Prompt exceeds maximum allowed length of ${MAX_FLEXIBLE_PROMPT_LENGTH} characters.` });
+      }
+
       let ai;
       try {
         ai = getGenAI();
@@ -349,10 +365,13 @@ Deliver your response strictly adhering to the JSON structure provided.
       });
     }
 
+    // Genuinely unclassified error (unexpected crash, JSON parse failure, etc.).
+    // Return 500 while keeping the same {status:'error', ...} body shape so the
+    // frontend's existing !response.ok fallback path handles it gracefully.
     console.error('Gemini API Integration Error:', error);
-    return res.status(200).json({
+    return res.status(500).json({
       status: 'error',
-      errorType: 'apiServiceUnavailable',
+      errorType: 'internalError',
       message: 'An error occurred during AI analysis: ' + errMsg,
     });
   }
@@ -361,7 +380,7 @@ Deliver your response strictly adhering to the JSON structure provided.
 const BEHAVIORAL_DISCLAIMER = 'This is a behavioral/communication-style read generated from observed interaction patterns (sentiment, engagement, and your own notes/tags). It is NOT a clinical, psychological, or medical assessment, and it does not consider or infer any protected characteristics. Treat it as a professional coaching aid, not a definitive judgment of the person.';
 
 // AI Behavioral/Relationship Index Endpoint
-app.post('/api/behavioral-profile', async (req, res) => {
+app.post('/api/behavioral-profile', requireAuth, async (req, res) => {
   try {
     const { contact, userProfile, weightingBreakdown, signalScores } = req.body;
 
@@ -498,17 +517,20 @@ Deliver your response strictly adhering to the JSON structure provided.
       });
     }
 
+    // Genuinely unclassified error (unexpected crash, JSON parse failure, etc.).
+    // Return 500 while keeping the same {status:'error', ...} body shape so the
+    // frontend's existing fallback path handles it gracefully.
     console.error('Gemini Behavioral Profile Integration Error:', error);
-    return res.status(200).json({
+    return res.status(500).json({
       status: 'error',
-      errorType: 'apiServiceUnavailable',
+      errorType: 'internalError',
       message: 'An error occurred during behavioral analysis: ' + errMsg,
     });
   }
 });
 
 // AI Document Summary Endpoint
-app.post('/api/summarize-sop', async (req, res) => {
+app.post('/api/summarize-sop', requireAuth, async (req, res) => {
   try {
     const { title, content, userNotes } = req.body;
 
@@ -558,7 +580,7 @@ ${userNotes || 'None'}
 });
 
 // AI Overview Development Advice Endpoint
-app.post('/api/overview-advice', async (req, res) => {
+app.post('/api/overview-advice', requireAuth, async (req, res) => {
   try {
     const { profile, notes, contacts, tasks, dayOfWeek } = req.body;
 

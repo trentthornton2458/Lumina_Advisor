@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Contact, MeetingNote, TaskReminder, MyselfProfile } from '../types';
 import { 
-  Calendar, Award, Target, Sparkles, CheckCircle2, AlertCircle, 
+  Calendar, Award, Target, Sparkles, CheckCircle2, AlertCircle,
   ArrowRight, Shield, TrendingUp, Lightbulb, Zap, UserCheck, Clock, Lock
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
 
 interface OverviewTabProps {
   contacts: Contact[];
@@ -28,6 +30,7 @@ export default function OverviewTab({
   setActiveTab,
   onToggleTask
 }: OverviewTabProps) {
+  const { user } = useAuth();
   const [insights, setInsights] = useState<OverviewInsights | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -95,7 +98,7 @@ export default function OverviewTab({
     async function getDevAdvice() {
       setIsLoading(true);
       try {
-        const response = await fetch('/api/overview-advice', {
+        const response = await authedFetch('/api/overview-advice', user, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

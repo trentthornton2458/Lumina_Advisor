@@ -1,12 +1,14 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Mic, MicOff, Square, Play, Pause, Sparkles, Loader2, Copy, Check,
-  Clock, AlertCircle, FileText, Wand2, Volume2, X, ChevronDown,
-  Users, Target, MessageSquare
+import {
+  Mic, Square, Play, Pause, Sparkles, Loader2, Copy, Check,
+  AlertCircle, FileText, Wand2, Volume2, ChevronDown,
+  Users, Target
 } from 'lucide-react';
 import { Contact, MeetingNote, NoteCategory } from '../types';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
+import ModalShell from './ModalShell';
 
 interface MeetingTranscriberProps {
   contacts: Contact[];
@@ -24,6 +26,7 @@ type RecordingState = 'idle' | 'recording' | 'paused' | 'processing' | 'results'
 
 export default function MeetingTranscriber({ contacts, onAddNote, onClose }: MeetingTranscriberProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   
   // Recording state
   const [state, setState] = useState<RecordingState>('idle');
@@ -312,7 +315,7 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
     setState('processing');
 
     try {
-      const response = await fetch('/api/ai-advice', {
+      const response = await authedFetch('/api/ai-advice', user, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -393,7 +396,7 @@ CRITICAL: Return ONLY the JSON object, no markdown formatting, no code blocks.`
       setState('results');
       showToast('Used local analysis (AI unavailable)', 'warning');
     }
-  }, [contacts, showToast, elapsedTime]);
+  }, [contacts, showToast, elapsedTime, user]);
 
   // Local fallback analysis
   const generateLocalAnalysis = (text: string) => {
@@ -454,52 +457,47 @@ CRITICAL: Return ONLY the JSON object, no markdown formatting, no code blocks.`
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={state === 'idle' || state === 'results' ? onClose : undefined}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-      />
-      
-      {/* Modal */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-      >
-        {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-blue-50/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-              <Mic size={20} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">AI Meeting Transcription</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {state === 'idle' && 'Record your meeting and let AI extract notes, key points & sentiment'}
-                {state === 'recording' && 'Listening — speak naturally into your microphone'}
-                {state === 'paused' && 'Recording paused — resume or stop to analyze'}
-                {state === 'processing' && 'AI is analyzing your transcript...'}
-                {state === 'results' && 'Review AI-extracted meeting insights'}
-              </p>
-            </div>
+    <ModalShell
+      title="AI Meeting Transcription"
+      subtitle={
+        <>
+          {state === 'idle' && 'Record your meeting and let AI extract notes, key points & sentiment'}
+          {state === 'recording' && 'Listening — speak naturally into your microphone'}
+          {state === 'paused' && 'Recording paused — resume or stop to analyze'}
+          {state === 'processing' && 'AI is analyzing your transcript...'}
+          {state === 'results' && 'Review AI-extracted meeting insights'}
+        </>
+      }
+      icon={<Mic size={20} className="text-white" />}
+      iconWrapperClassName="bg-gradient-to-br from-blue-600 to-indigo-600 shadow-blue-600/20"
+      headerClassName="from-slate-50 to-blue-50/30"
+      onClose={onClose}
+      onBackdropClick={state === 'idle' || state === 'results' ? onClose : undefined}
+      footer={
+        state === 'results' ? (
+          <div className="p-5 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+            <button
+              onClick={() => {
+                setState('idle');
+                setTranscript('');
+                setAiResults(null);
+                setElapsedTime(0);
+              }}
+              className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition"
+            >
+              Record Again
+            </button>
+            <button
+              onClick={handleSaveNote}
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20"
+            >
+              <Wand2 size={16} />
+              Save as Meeting Note
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          
+        ) : undefined
+      }
+    >
           {/* Error */}
           {error && (
             <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-2xl">
@@ -726,32 +724,6 @@ CRITICAL: Return ONLY the JSON object, no markdown formatting, no code blocks.`
               </details>
             </>
           )}
-        </div>
-
-        {/* Footer actions */}
-        {state === 'results' && (
-          <div className="p-5 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-            <button
-              onClick={() => {
-                setState('idle');
-                setTranscript('');
-                setAiResults(null);
-                setElapsedTime(0);
-              }}
-              className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition"
-            >
-              Record Again
-            </button>
-            <button
-              onClick={handleSaveNote}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20"
-            >
-              <Wand2 size={16} />
-              Save as Meeting Note
-            </button>
-          </div>
-        )}
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

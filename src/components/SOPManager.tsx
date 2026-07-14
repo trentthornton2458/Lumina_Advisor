@@ -5,6 +5,8 @@ import {
   BookOpen, BrainCircuit, RefreshCw, MessageSquare
 } from 'lucide-react';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
 
 interface SOPManagerProps {
   sops: SOPDocument[];
@@ -14,6 +16,7 @@ interface SOPManagerProps {
 
 export default function SOPManager({ sops, onAddSop, onDeleteSop }: SOPManagerProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [fileType, setFileType] = useState('pdf');
@@ -33,7 +36,7 @@ export default function SOPManager({ sops, onAddSop, onDeleteSop }: SOPManagerPr
     let aiSummaryText = '';
 
     try {
-      const res = await fetch('/api/summarize-sop', {
+      const res = await authedFetch('/api/summarize-sop', user, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

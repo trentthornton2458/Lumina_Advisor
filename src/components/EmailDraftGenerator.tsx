@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { 
-  Mail, Sparkles, Loader2, Copy, Check, X, Send, 
-  RefreshCw, MessageSquare, Users
+import {
+  Mail, Sparkles, Loader2, Copy, Check, Send,
+  MessageSquare, Users
 } from 'lucide-react';
 import { Contact, MeetingNote, MyselfProfile } from '../types';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
+import ModalShell from './ModalShell';
 
 interface EmailDraftGeneratorProps {
   contact: Contact;
@@ -26,6 +28,7 @@ const TEMPLATES: { key: EmailTemplate; label: string; description: string; icon:
 
 export default function EmailDraftGenerator({ contact, notes, profile, onClose }: EmailDraftGeneratorProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate>('follow-up');
   const [additionalContext, setAdditionalContext] = useState('');
@@ -78,7 +81,7 @@ Write a professional email that:
 Format as a complete email with Subject:, then the body. Do NOT include "From:" or "To:" headers.`;
 
     try {
-      const response = await fetch('/api/ai-advice', {
+      const response = await authedFetch('/api/ai-advice', user, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'email-draft', prompt })
@@ -189,43 +192,15 @@ ${profile.position}, ${profile.company}`
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-      />
-      
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-      >
-        {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-indigo-50/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
-              <Mail size={20} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">AI Email Draft</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Compose a context-aware email to <span className="font-semibold text-slate-700">{contact.name}</span>
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Template picker */}
+    <ModalShell
+      title="AI Email Draft"
+      subtitle={<>Compose a context-aware email to <span className="font-semibold text-slate-700">{contact.name}</span></>}
+      icon={<Mail size={20} className="text-white" />}
+      iconWrapperClassName="bg-gradient-to-br from-indigo-600 to-purple-600 shadow-indigo-600/20"
+      headerClassName="from-slate-50 to-indigo-50/30"
+      onClose={onClose}
+    >
+      {/* Template picker */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Type</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -305,8 +280,6 @@ ${profile.position}, ${profile.company}`
               </div>
             </div>
           )}
-        </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

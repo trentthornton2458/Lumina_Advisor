@@ -4,6 +4,8 @@ import { computeWeightedEvidence, computeSignalScores, generateFallbackBehaviora
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { BrainCircuit, RefreshCw, ShieldAlert, Compass, Users, ChevronRight, Info } from 'lucide-react';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
 
 interface BehavioralIndexPanelProps {
   contact: Contact;
@@ -27,6 +29,7 @@ const SIGNAL_BAR_COLOR = '#2563eb';
 
 export default function BehavioralIndexPanel({ contact, contactNotes, profile, behavioralProfile, onSaveProfile }: BehavioralIndexPanelProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -38,7 +41,7 @@ export default function BehavioralIndexPanel({ contact, contactNotes, profile, b
       let qualitative: Omit<BehavioralProfile, 'contactId' | 'computedAt' | 'signalScores' | 'weightingBreakdown'> | null = null;
 
       try {
-        const response = await fetch('/api/behavioral-profile', {
+        const response = await authedFetch('/api/behavioral-profile', user, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contact, userProfile: profile, weightingBreakdown, signalScores })
