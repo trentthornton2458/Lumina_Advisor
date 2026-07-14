@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useState } from 'react';
 import { 
   signInWithPopup, 
@@ -298,19 +299,21 @@ export default function Login() {
         )}
 
         {/* Developer / Demo Bypass Section */}
-        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700/60">
-          <p className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-wider mb-3">
-            Developer Options
-          </p>
-          <button
-            type="button"
-            onClick={() => loginAsDemo(email || 'demo@lumina.ai')}
-            className="w-full py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-300 border border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:shadow-md"
-          >
-            <KeyRound size={14} className="text-amber-500" />
-            Bypass & Access Dashboard
-          </button>
-        </div>
+        {import.meta.env.DEV && (
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700/60">
+            <p className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase tracking-wider mb-3">
+              Developer Options
+            </p>
+            <button
+              type="button"
+              onClick={() => loginAsDemo(email || 'demo@lumina.ai')}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-300 border border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:shadow-md"
+            >
+              <KeyRound size={14} className="text-amber-500" />
+              Bypass & Access Dashboard
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
