@@ -159,6 +159,7 @@ export default function CompanyManager({
               onClick={startAdd}
               className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center"
               title="Add New Company"
+              aria-label="Add New Company"
             >
               <Plus size={16} />
             </button>
@@ -242,6 +243,7 @@ export default function CompanyManager({
                     setIsEditing(false);
                   }}
                   className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  aria-label="Close form"
                 >
                   <X size={18} />
                 </button>
@@ -373,6 +375,7 @@ export default function CompanyManager({
                     onClick={() => startEdit(selectedCompany)}
                     className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 text-slate-600 rounded-xl transition flex items-center justify-center"
                     title="Edit Company"
+                    aria-label="Edit Company"
                   >
                     <Edit2 size={15} />
                   </button>
@@ -387,6 +390,7 @@ export default function CompanyManager({
                       <button
                         onClick={() => setDeleteConfirmId(null)}
                         className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                        aria-label="Cancel delete"
                       >
                         <X size={14} />
                       </button>
@@ -396,6 +400,7 @@ export default function CompanyManager({
                       onClick={() => setDeleteConfirmId(selectedCompany.id)}
                       className="p-2.5 bg-red-50 hover:bg-red-100 border border-red-200/50 text-red-600 rounded-xl transition flex items-center justify-center"
                       title="Delete Company"
+                      aria-label="Delete Company"
                     >
                       <Trash2 size={15} />
                     </button>

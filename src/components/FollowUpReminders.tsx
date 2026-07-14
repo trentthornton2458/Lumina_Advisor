@@ -347,6 +347,7 @@ export default function FollowUpReminders({
                         id={`toggle-complete-${t.id}`}
                         onClick={() => onToggleTask(t.id)}
                         className="mt-0.5 text-stone-400 hover:text-stone-800 transition focus:outline-none flex-shrink-0"
+                        aria-label={t.completed ? 'Mark task incomplete' : 'Mark task complete'}
                       >
                         {t.completed ? (
                           <CheckCircle2 size={20} className="text-emerald-500 fill-emerald-10" />
@@ -399,6 +400,7 @@ export default function FollowUpReminders({
                         onClick={() => onDeleteTask(t.id)}
                         className="text-stone-400 hover:text-rose-650 p-1 rounded-lg hover:bg-stone-50 hover:border hover:border-stone-200 transition"
                         title="Delete task"
+                        aria-label="Delete task"
                       >
                         <Trash2 size={14} />
                       </button>

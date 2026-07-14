@@ -661,7 +661,7 @@ export default function NotesManager({
         ) : (
           /* Empty state */
           <div className="bg-white rounded-xl border border-stone-200 p-12 text-center flex-1 flex flex-col justify-center items-center">
-            <NotebookTabsIcon size={40} className="text-stone-300 mb-3" />
+            <NotebookTabs size={40} className="text-stone-300 mb-3" />
             <h3 className="font-medium text-stone-900 text-lg">No Meeting Logs Recorded</h3>
             <p className="text-stone-500 text-sm max-w-sm mt-1 mb-4">Log meeting contexts, phone conversations, client pitches or key personal reviews to start analyzing trends.</p>
             <button
@@ -675,9 +675,4 @@ export default function NotesManager({
       </div>
     </div>
   );
-}
-
-// Temporary fallback for lack of icon imports
-function NotebookTabsIcon({ size, className }: { size: number; className?: string }) {
-  return <NotebookTabs size={size} className={className} />;
 }

@@ -865,6 +865,7 @@ export default function ContactManager({
                                   onClick={() => onToggleTask?.(task.id)}
                                   className="mt-0.5 text-stone-400 hover:text-indigo-600 transition shrink-0"
                                   title={task.completed ? "Mark pending" : "Mark completed"}
+                                  aria-label={task.completed ? "Mark pending" : "Mark completed"}
                                 >
                                   {task.completed ? (
                                     <CheckCircle2 size={18} className="text-emerald-500" />
