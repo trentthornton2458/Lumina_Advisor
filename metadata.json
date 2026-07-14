@@ -1,0 +1,6 @@
+{
+  "name": "Conversation and Note Tracker",
+  "description": "A conversation, contact, and note tracker for professionals featuring engagement sentiment dashboards, task follow-up reminders, and AI-powered profile-aware meeting advice.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumina - AI Advisor for Businesses</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0066ff" />
+    <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f399.svg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister().then((success) => {
+              if (success) console.log('Service Worker unregistered successfully');
+            });
+          }
+        }).catch((err) => {
+          console.error('Error unregistering service workers:', err);
+        });
+
+        // Clear all Cache Storage
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            for (const name of names) {
+              caches.delete(name).then((success) => {
+                if (success) console.log('Deleted cache:', name);
+              });
+            }
+          }).catch((err) => {
+            console.error('Error clearing caches:', err);
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
+
