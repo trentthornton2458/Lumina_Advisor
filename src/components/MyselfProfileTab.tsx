@@ -1,11 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { MyselfProfile, Contact, MeetingNote, TaskReminder } from '../types';
-import { 
-  User, Briefcase, Award, MessageSquare, Target, Info, 
+import {
+  User, Briefcase, Award, MessageSquare, Target, Info,
   Edit2, Check, X, ShieldAlert, Sparkles, MapPin, Users,
-  Database, Download, Upload, FileSpreadsheet
+  Database, Download, Upload, FileSpreadsheet, Trash2, Loader2, Scale
 } from 'lucide-react';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { auth } from '../lib/firebase';
+import { deleteUser } from 'firebase/auth';
+import { deleteUserData } from '../lib/userDataService';
+import { LegalDocument } from './LegalDocument';
 
 interface MyselfProfileTabProps {
   profile: MyselfProfile;
@@ -28,7 +33,36 @@ export default function MyselfProfileTab({
 }: MyselfProfileTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const { showToast } = useToast();
-  
+  const { user } = useAuth();
+
+  // Account deletion flow
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirming' | 'deleting'>('idle');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy'>('terms');
+
+  const handleDeleteAccount = async () => {
+    if (!user || !auth.currentUser) return;
+    setDeleteStep('deleting');
+    try {
+      await deleteUserData(user.uid);
+      [
+        'c_notes_contacts', 'c_notes_notes', 'c_notes_tasks', 'c_notes_profile',
+        'c_notes_companies', 'c_notes_sops', 'c_notes_advisor_reports', 'c_notes_behavioral_profiles',
+        'c_notes_active_tab', 'c_notes_tab_order', 'lumina_dark_mode', 'lumina_setup_completed',
+      ].forEach(key => localStorage.removeItem(key));
+      await deleteUser(auth.currentUser);
+      showToast('Your account and all associated data have been permanently deleted.', 'success');
+      // deleteUser() signs the account out; MainApp's auth listener will return to the Login screen.
+    } catch (err: any) {
+      if (err?.code === 'auth/requires-recent-login') {
+        showToast('For security, please sign out and sign back in, then try deleting your account again.', 'error', 8000);
+      } else {
+        showToast('Failed to delete account: ' + (err?.message || 'an unexpected error occurred'), 'error');
+      }
+      setDeleteStep('confirming');
+    }
+  };
+
   // Fields state
   const [name, setName] = useState(profile.name);
   const [position, setPosition] = useState(profile.position);
@@ -659,6 +693,95 @@ export default function MyselfProfileTab({
                       </button>
                     </div>
                   </div>
+                </div>
+
+                {/* Danger Zone: irreversible account & data deletion */}
+                <div className="p-0 rounded-[20px] bg-white border border-rose-200 shadow-[0_4px_20px_-4px_rgba(220,38,38,0.06)] overflow-hidden flex flex-col">
+                  <div className="px-7 py-4 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">
+                      <Trash2 size={16} />
+                    </div>
+                    <h3 className="text-xs font-bold text-rose-700 uppercase tracking-[0.1em]">Danger Zone</h3>
+                  </div>
+                  <div className="p-7 space-y-4">
+                    <p className="text-slate-600 text-sm leading-relaxed">
+                      Permanently delete your account and every piece of associated data — contacts, notes, tasks, companies, SOPs, advisor reports, and behavioral profiles. This cannot be undone. Consider exporting a backup above first.
+                    </p>
+
+                    {deleteStep === 'idle' && (
+                      <button
+                        onClick={() => setDeleteStep('confirming')}
+                        className="flex items-center gap-2 px-4 py-3 bg-white border border-rose-300 hover:bg-rose-50 text-rose-700 rounded-xl text-xs font-bold transition"
+                      >
+                        <Trash2 size={14} /> Delete My Account &amp; Data
+                      </button>
+                    )}
+
+                    {deleteStep === 'confirming' && (
+                      <div className="space-y-3 p-4 bg-rose-50/60 border border-rose-200 rounded-xl">
+                        <p className="text-xs text-rose-800 font-semibold">Type DELETE to confirm. This is permanent and cannot be undone.</p>
+                        <input
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          className="w-full bg-white border border-rose-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-rose-500"
+                          placeholder="DELETE"
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setDeleteStep('idle'); setDeleteConfirmText(''); }}
+                            className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleDeleteAccount}
+                            disabled={deleteConfirmText !== 'DELETE'}
+                            className="px-4 py-2 bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg hover:bg-rose-700 transition"
+                          >
+                            Permanently Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {deleteStep === 'deleting' && (
+                      <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
+                        <Loader2 className="animate-spin" size={14} /> Deleting your account and data…
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Legal & Privacy Panel */}
+            {activeSubTab === 'legal' && (
+              <div className="p-0 rounded-[20px] bg-white border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
+                <div className="px-7 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                      <Scale size={16} />
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.1em]">Legal &amp; Privacy</h3>
+                  </div>
+                  <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setLegalDoc('terms')}
+                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition ${legalDoc === 'terms' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      Terms of Service
+                    </button>
+                    <button
+                      onClick={() => setLegalDoc('privacy')}
+                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition ${legalDoc === 'privacy' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      Privacy Policy
+                    </button>
+                  </div>
+                </div>
+                <div className="p-7">
+                  <LegalDocument doc={legalDoc} />
                 </div>
               </div>
             )}

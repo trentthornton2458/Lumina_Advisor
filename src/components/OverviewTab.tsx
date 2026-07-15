@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authedFetch } from '../lib/apiClient';
+import DisclaimerNote from './DisclaimerNote';
+import { ADVISORY_DISCLAIMER } from '../lib/disclaimers';
 
 interface OverviewTabProps {
   contacts: Contact[];
@@ -249,6 +251,12 @@ export default function OverviewTab({
                   </div>
                 </div>
 
+              </div>
+            )}
+
+            {!isLoading && insights && (
+              <div className="mt-4">
+                <DisclaimerNote text={ADVISORY_DISCLAIMER} />
               </div>
             )}
           </div>

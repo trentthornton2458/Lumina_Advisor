@@ -657,6 +657,7 @@ export default function App() {
                     { id: 'position', name: 'My Position' },
                     { id: 'goals', name: 'Goals' },
                     { id: 'data', name: 'Data & Backups' },
+                    { id: 'legal', name: 'Legal & Privacy' },
                   ].map(sub => (
                     <button
                       key={sub.id}
@@ -681,6 +682,14 @@ export default function App() {
 
         {/* Dynamic Profile Widget footer in Sidebar */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/20 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <button
+              onClick={() => { setActiveTab('myself'); setIsMyselfExpanded(true); setMyselfSubTab('legal'); }}
+              className="text-[10px] font-semibold text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors"
+            >
+              Terms &amp; Privacy
+            </button>
+          </div>
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-semibold text-slate-400">Dark Mode</span>
             <button

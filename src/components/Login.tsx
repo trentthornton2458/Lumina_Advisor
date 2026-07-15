@@ -9,7 +9,9 @@ import {
 import { auth, googleAuthProvider } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, User, ArrowRight, Loader2, KeyRound } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, KeyRound, Scale } from 'lucide-react';
+import ModalShell from './ModalShell';
+import { LegalDocument } from './LegalDocument';
 
 export default function Login() {
   const { loginAsDemo } = useAuth();
@@ -22,6 +24,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState(''); // Just for signup visual feedback
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -46,6 +50,9 @@ export default function Login() {
       if (authMode === 'signin') {
         await signInWithEmailAndPassword(auth, email, password);
       } else if (authMode === 'signup') {
+        if (!agreedToTerms) {
+          throw new Error('Please agree to the Terms of Service and Privacy Policy to create an account.');
+        }
         if (password.length < 6) {
           throw new Error('Password must be at least 6 characters.');
         }
@@ -223,10 +230,32 @@ export default function Login() {
             </div>
           )}
 
+          {authMode === 'signup' && (
+            <label className="flex items-start gap-2.5 text-[11px] text-slate-500 dark:text-slate-400 leading-snug cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 shrink-0"
+              />
+              <span>
+                I agree to the{' '}
+                <button type="button" onClick={() => setLegalModal('terms')} className="text-blue-500 hover:underline font-semibold">
+                  Terms of Service
+                </button>{' '}
+                and{' '}
+                <button type="button" onClick={() => setLegalModal('privacy')} className="text-blue-500 hover:underline font-semibold">
+                  Privacy Policy
+                </button>
+                , including that Lumina's behavioral insights are advisory only and not an employment decision tool.
+              </span>
+            </label>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
+            disabled={loading || (authMode === 'signup' && !agreedToTerms)}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
           >
             {loading ? (
               <Loader2 size={16} className="animate-spin" />
@@ -314,7 +343,30 @@ export default function Login() {
             </button>
           </div>
         )}
+
+        {/* Legal footer links — always visible regardless of auth mode */}
+        <p className="mt-6 text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
+          By continuing you agree to our{' '}
+          <button type="button" onClick={() => setLegalModal('terms')} className="underline hover:text-slate-600 dark:hover:text-slate-300">
+            Terms of Service
+          </button>{' '}
+          and{' '}
+          <button type="button" onClick={() => setLegalModal('privacy')} className="underline hover:text-slate-600 dark:hover:text-slate-300">
+            Privacy Policy
+          </button>
+          . Lumina provides automated communication suggestions based on algorithmic profiling — final business decisions should rely on human discretion.
+        </p>
       </div>
+
+      {legalModal && (
+        <ModalShell
+          title={legalModal === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+          icon={<Scale size={20} className="text-white" />}
+          onClose={() => setLegalModal(null)}
+        >
+          <LegalDocument doc={legalModal} />
+        </ModalShell>
+      )}
     </div>
   );
 }

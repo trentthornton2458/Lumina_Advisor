@@ -99,6 +99,12 @@ async function generateContentWithFallback(ai: GoogleGenAI, params: any) {
 const ALLOWED_FLEXIBLE_TYPES = ['meeting-transcription', 'email-draft', 'meeting-prep'];
 const MAX_FLEXIBLE_PROMPT_LENGTH = 20000;
 
+// Shared guardrail prepended to every system instruction that reasons about a person's
+// personality, communication style, or behavior. Keeps all AI-profiling endpoints aligned
+// on the same protected-characteristic exclusion and ADMT (automated decision-making) boundary,
+// instead of each prompt drifting independently.
+const PROTECTED_ATTRIBUTE_GUARDRAIL = `Do NOT infer, reference, or speculate about protected characteristics (race, religion, disability, gender identity, sexual orientation, age, national origin, pregnancy, or similar), even indirectly. This analysis is an individual communication-coaching aid only — it must never be presented as, or used as, the sole or primary basis for an employment decision (hiring, firing, promotion, discipline, compensation, or performance review).`;
+
 // AI Advisor API Endpoint
 app.post('/api/ai-advice', requireAuth, async (req, res) => {
   try {
@@ -166,6 +172,7 @@ app.post('/api/ai-advice', requireAuth, async (req, res) => {
     }[adviceCategory as 'meetingPrep' | 'frictionRedline' | 'strategicActionList' | 'customTemplate'] || 'General professional advice.';
 
     const systemInstruction = `You are an elite professional consultant, communication coach, and corporate strategist.
+${PROTECTED_ATTRIBUTE_GUARDRAIL}
 Your objective is to analyze meeting/conversation notes, contact status, user's style, and Standard Operating Procedures (SOPs), then generate high-tact, deep-dive advisory insights.
 Be highly specific, referring to the contacts, roles, companies, and historical points provided.
 Structure your response as 2-5 distinct "sections", each with a short "heading" and a "body" in clean markdown (use **bold**, "-" bullet lists, and short paragraphs — do NOT use "#"/"##" heading syntax inside body, the heading field already provides that).
@@ -405,7 +412,7 @@ app.post('/api/behavioral-profile', requireAuth, async (req, res) => {
     const systemInstruction = `You are a professional communication-coaching assistant helping someone work more effectively with a business contact.
 Using ONLY the weighted evidence provided (interaction sentiment/engagement trends, category weighting, recency decay, and the user's own manually-entered tags/relationship status/free-text notes about this professional contact), produce a DISC-style behavioral/communication coaching read.
 This is explicitly NOT a clinical, psychological, psychiatric, or medical assessment and must NEVER claim to diagnose anything.
-Do NOT infer or reference protected characteristics (race, religion, disability, gender identity, sexual orientation, age, national origin, pregnancy, or similar), even indirectly.
+${PROTECTED_ATTRIBUTE_GUARDRAIL}
 For every trait, motivator, or risk factor you assert, ground it in the supplied evidence — do not invent facts not present in the evidence.
 If signalScores.confidence is below 40, explicitly caveat in recommendedApproach that the read is preliminary due to limited interaction history.
 Also compare the user's own profile (personality/communicationStyle) against the inferred read on this contact and produce concrete "how you should adapt" guidance in selfCompatibility.
@@ -604,6 +611,7 @@ app.post('/api/overview-advice', requireAuth, async (req, res) => {
     }
 
     const systemInstruction = `You are Lumina, an elite executive business psychologist and leadership advisor.
+${PROTECTED_ATTRIBUTE_GUARDRAIL}
 Your task is to analyze the user profile (${profile.personality}), day of week (${dayOfWeek}), workload (pending tasks: ${JSON.stringify(tasks)}), and recent notes (including private notes: ${JSON.stringify(notes)}).
 Generate a strategic summary containing exactly these three fields:
 - weeklyStructure: 2-3 sentences max. Give specific tips on how the user should structure their week or day given the day of the week (${dayOfWeek}) and pending task workload. Be extremely concrete.

@@ -51,6 +51,7 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
   const [selectedContactId, setSelectedContactId] = useState('');
   const [editedTitle, setEditedTitle] = useState('');
   const [copied, setCopied] = useState(false);
+  const [consentAcknowledged, setConsentAcknowledged] = useState(false);
   
   // Refs
   const recognitionRef = useRef<any>(null);
@@ -521,9 +522,22 @@ CRITICAL: Return ONLY the JSON object, no markdown formatting, no code blocks.`
                   ⚠️ Speech recognition requires Chrome or Edge browser
                 </div>
               )}
+
+              <label className="flex items-start gap-2.5 max-w-sm mx-auto mb-5 p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-left cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentAcknowledged}
+                  onChange={(e) => setConsentAcknowledged(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 rounded border-amber-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                />
+                <span className="text-[11px] text-amber-900 leading-snug">
+                  Everyone else on this call will be recorded and transcribed by AI. I confirm I have their consent, where required by law in my jurisdiction.
+                </span>
+              </label>
+
               <button
                 onClick={startRecording}
-                disabled={!isSupported}
+                disabled={!isSupported || !consentAcknowledged}
                 className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl text-sm transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
               >
                 <Mic size={18} />

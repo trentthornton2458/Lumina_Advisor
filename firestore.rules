@@ -1,0 +1,15 @@
+rules_version = '2';
+
+// Mirrors the ruleset already live on gen-lang-client-0991202907 (pulled from the
+// Firebase Rules API on 2026-07-14) - committed here so it's reviewable and versioned
+// instead of only existing in the Firebase console. Everything under a user's own
+// users/{userId} tree (contacts, notes, tasks, profile, companies, sops,
+// advisorReports, behavioralProfiles, settings) is restricted to that user; every
+// other path is denied by Firestore's default-deny behavior.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

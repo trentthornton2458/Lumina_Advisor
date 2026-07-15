@@ -2,6 +2,8 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AISuggestionResponse, AIHighlight, AIHighlightType, TaskPriority } from '../types';
 import { Sparkles, BrainCircuit, CheckSquare, Plus, Check, AlertTriangle, ShieldAlert, Lightbulb, Quote } from 'lucide-react';
+import DisclaimerNote from './DisclaimerNote';
+import { ADVISORY_DISCLAIMER } from '../lib/disclaimers';
 
 interface AdvisorReportViewProps {
   response: AISuggestionResponse;
@@ -145,6 +147,8 @@ export default function AdvisorReportView({ response, isSimulated, onAddTask, ad
           </div>
         </div>
       )}
+
+      <DisclaimerNote text={ADVISORY_DISCLAIMER} variant="dark" />
     </div>
   );
 }

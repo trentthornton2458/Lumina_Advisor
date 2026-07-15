@@ -1,5 +1,5 @@
 import { db } from './firestore';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile } from '../types';
 
 export interface UserSettings {
@@ -273,4 +273,20 @@ export async function saveSettings(uid: string, settings: UserSettings) {
   } catch (error) {
     console.error('Error saving settings to Firestore:', error);
   }
+}
+
+const ALL_DATA_DOC_KEYS = [
+  'contacts', 'notes', 'tasks', 'profile', 'companies',
+  'sops', 'advisorReports', 'behavioralProfiles', 'settings',
+] as const;
+
+/**
+ * Permanently deletes every users/{uid}/data/* document for this account.
+ * Does not delete the Firebase Auth user record itself - callers should
+ * follow this with `deleteUser(auth.currentUser)` to remove the account.
+ */
+export async function deleteUserData(uid: string): Promise<void> {
+  await Promise.all(
+    ALL_DATA_DOC_KEYS.map(key => deleteDoc(doc(db, 'users', uid, 'data', key)))
+  );
 }
