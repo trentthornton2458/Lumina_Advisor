@@ -207,6 +207,7 @@ ${
         .map(
           (n: any) => `* Note Date: ${n.date}
   Title: ${n.title}
+  Attendees: ${n.attendeeNames && n.attendeeNames.length > 0 ? n.attendeeNames.join(', ') : 'Not specified'}
   Category: ${n.category}
   Sentiment Grade: ${n.sentimentScore}/10, Engagement: ${n.engagementLevel}/10
   Core Key Points:

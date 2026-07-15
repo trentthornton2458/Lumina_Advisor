@@ -8,6 +8,7 @@ import { Contact, MeetingNote, TaskReminder, MyselfProfile } from '../types';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { authedFetch } from '../lib/apiClient';
+import { noteInvolvesContact } from '../lib/noteUtils';
 import ModalShell from './ModalShell';
 
 interface MeetingPrepChecklistProps {
@@ -26,9 +27,9 @@ export default function MeetingPrepChecklist({ contact, notes, tasks, profile, o
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
 
   // Gather data for this contact
-  const contactNotes = useMemo(() => 
+  const contactNotes = useMemo(() =>
     notes
-      .filter(n => n.contactId === contact.id)
+      .filter(n => noteInvolvesContact(n, contact.id))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [notes, contact.id]
   );

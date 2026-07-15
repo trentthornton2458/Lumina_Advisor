@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MeetingNote, Contact, NoteCategory } from '../types';
-import { 
-  Calendar, Search, Filter, Plus, Trash2, Edit3, Tag, 
-  User, CheckSquare, Smile, Eye, MessageSquareCode, Sparkles, NotebookTabs, Lock
+import {
+  Calendar, Search, Filter, Plus, Trash2, Edit3, Tag,
+  User, Users, Check, CheckSquare, Smile, Eye, MessageSquareCode, Sparkles, NotebookTabs, Lock, X
 } from 'lucide-react';
+import { noteInvolvesContact, getNoteAttendeeIds } from '../lib/noteUtils';
 
 interface NotesManagerProps {
   notes: MeetingNote[];
@@ -36,6 +37,7 @@ export default function NotesManager({
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [contactId, setContactId] = useState('');
+  const [attendeeIds, setAttendeeIds] = useState<string[]>([]);
   const [category, setCategory] = useState<NoteCategory>('Discovery');
   const [content, setContent] = useState('');
   const [sentimentScore, setSentimentScore] = useState(5);
@@ -53,9 +55,10 @@ export default function NotesManager({
   const filteredNotes = notes
     .filter(note => {
       const matchesPrivacy = noteViewFilter === 'private' ? note.isPrivate === true : !note.isPrivate;
-      const contact = contacts.find(c => c.id === note.contactId);
-      const contactName = contact ? contact.name : '';
-      const textMatch = `${note.title} ${note.content} ${contactName} ${note.keyPoints.join(' ')}`.toLowerCase();
+      const attendeeNames = getNoteAttendeeIds(note)
+        .map(id => contacts.find(c => c.id === id)?.name || '')
+        .join(' ');
+      const textMatch = `${note.title} ${note.content} ${attendeeNames} ${note.keyPoints.join(' ')}`.toLowerCase();
       const matchesSearch = textMatch.includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All' || note.category === selectedCategory;
       return matchesPrivacy && matchesSearch && matchesCategory;
@@ -64,6 +67,9 @@ export default function NotesManager({
 
   const selectedNote = notes.find(n => n.id === selectedNoteId) || null;
   const linkedContact = selectedNote ? contacts.find(c => c.id === selectedNote.contactId) : null;
+  const otherAttendees = selectedNote
+    ? (selectedNote.attendeeIds || []).map(id => contacts.find(c => c.id === id)).filter((c): c is Contact => !!c)
+    : [];
 
   const handleAddKeyPoint = () => {
     if (keyPointInput.trim()) {
@@ -74,6 +80,10 @@ export default function NotesManager({
 
   const handleRemoveKeyPoint = (index: number) => {
     setKeyPointsList(keyPointsList.filter((_, i) => i !== index));
+  };
+
+  const handleToggleAttendee = (id: string) => {
+    setAttendeeIds(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
   };
 
   const handleAddKeyPointOnKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -87,6 +97,7 @@ export default function NotesManager({
     setTitle('');
     setDate(new Date().toISOString().split('T')[0]);
     setContactId(contacts.length > 0 ? contacts[0].id : '');
+    setAttendeeIds([]);
     setCategory('Discovery');
     setContent('');
     setSentimentScore(6);
@@ -109,6 +120,7 @@ export default function NotesManager({
     setTitle(note.title);
     setDate(note.date);
     setContactId(note.contactId || '');
+    setAttendeeIds(note.attendeeIds || []);
     setCategory(note.category);
     setContent(note.content);
     setSentimentScore(note.sentimentScore);
@@ -131,12 +143,16 @@ export default function NotesManager({
       finalKeyPoints.push(keyPointInput.trim());
     }
 
+    // Never let the primary contact double up inside the attendees list
+    const finalAttendeeIds = attendeeIds.filter(id => id !== contactId);
+
     if (isAdding) {
       const newNote: MeetingNote = {
         id: 'n_' + Date.now(),
         date,
         title: title.trim(),
         contactId: contactId || undefined,
+        attendeeIds: finalAttendeeIds.length > 0 ? finalAttendeeIds : undefined,
         category,
         content: content.trim(),
         sentimentScore,
@@ -154,6 +170,7 @@ export default function NotesManager({
         date,
         title: title.trim(),
         contactId: contactId || undefined,
+        attendeeIds: finalAttendeeIds.length > 0 ? finalAttendeeIds : undefined,
         category,
         content: content.trim(),
         sentimentScore,
@@ -291,6 +308,9 @@ export default function NotesManager({
                   {contact && (
                     <p className="text-[11px] text-stone-500 font-medium flex items-center gap-1">
                       <User size={10} className="text-stone-400" /> {contact.name}
+                      {(n.attendeeIds?.length || 0) > 0 && (
+                        <span className="text-stone-400 font-normal">+{n.attendeeIds!.length} other{n.attendeeIds!.length > 1 ? 's' : ''}</span>
+                      )}
                     </p>
                   )}
                   {n.keyPoints.length > 0 && (
@@ -341,10 +361,15 @@ export default function NotesManager({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Associated Professional Contact</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Primary Contact</label>
                   <select
                     value={contactId}
-                    onChange={(e) => setContactId(e.target.value)}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      setContactId(newId);
+                      // Don't let the same person sit in both roles at once
+                      setAttendeeIds(prev => prev.filter(id => id !== newId));
+                    }}
                     className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-stone-500"
                   >
                     <option value="">-- No linked collaborator --</option>
@@ -367,6 +392,62 @@ export default function NotesManager({
                     <option value="Catch-up">Catch-up (Informal / Coffee networking)</option>
                     <option value="Follow-up">Follow-up (Brief sync / Next actions)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Additional attendees */}
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Users size={12} /> Additional Attendees
+                  <span className="normal-case font-medium text-stone-400 tracking-normal">— everyone else who was in this meeting</span>
+                </label>
+                {attendeeIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {attendeeIds.map(id => {
+                      const c = contacts.find(ct => ct.id === id);
+                      if (!c) return null;
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-stone-800 text-white text-xs font-medium rounded-full"
+                        >
+                          {c.name}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAttendee(id)}
+                            aria-label={`Remove ${c.name} from attendees`}
+                            className="hover:bg-white/20 rounded-full p-0.5 transition"
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="border border-stone-200 rounded-lg p-2 bg-stone-50/50 max-h-[110px] overflow-y-auto space-y-1">
+                  {contacts.filter(c => c.id !== contactId).length === 0 ? (
+                    <p className="text-xs text-stone-400 italic py-2 text-center">No other contacts to add.</p>
+                  ) : (
+                    contacts.filter(c => c.id !== contactId).map(c => {
+                      const isSelected = attendeeIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleToggleAttendee(c.id)}
+                          className="w-full flex items-center justify-between text-left text-xs font-medium text-stone-700 hover:text-stone-900 px-1.5 py-1 rounded hover:bg-stone-100"
+                        >
+                          <span className="truncate">{c.name} <span className="text-stone-400 font-normal">({c.company})</span></span>
+                          <span className={`w-3.5 h-3.5 border rounded-sm flex items-center justify-center shrink-0 ml-2 ${
+                            isSelected ? 'bg-stone-900 border-stone-900 text-white' : 'border-stone-300 bg-white'
+                          }`}>
+                            {isSelected && <Check size={9} />}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -517,11 +598,22 @@ export default function NotesManager({
                   <h2 className="text-xl font-semibold text-stone-900 leading-snug">{selectedNote.title}</h2>
                   
                   {linkedContact && (
-                    <div id="linked-contact-box" className="mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-800 text-xs rounded-lg font-medium">
-                      <User size={13} className="text-stone-500" />
-                      Collaborator: 
+                    <div id="linked-contact-box" className="mt-2.5 flex flex-wrap items-center gap-2 px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-800 text-xs rounded-lg font-medium">
+                      <User size={13} className="text-stone-500 shrink-0" />
+                      Collaborator:
                       <span className="text-stone-950 font-semibold">{linkedContact.name}</span>
                       <span className="text-stone-450 italic">({linkedContact.position} at {linkedContact.company})</span>
+                    </div>
+                  )}
+                  {otherAttendees.length > 0 && (
+                    <div id="other-attendees-box" className="mt-2 flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-800 text-xs rounded-lg font-medium">
+                      <Users size={13} className="text-stone-500 shrink-0" />
+                      Also present:
+                      {otherAttendees.map((c, i) => (
+                        <span key={c.id} className="text-stone-700">
+                          {c.name}{i < otherAttendees.length - 1 ? ',' : ''}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>

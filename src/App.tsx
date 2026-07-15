@@ -22,6 +22,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { useAuth } from './context/AuthContext';
+import { noteInvolvesContact } from './lib/noteUtils';
 import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile } from './types';
 import {
   INITIAL_CONTACTS, INITIAL_NOTES, INITIAL_TASKS, DEFAULT_PROFILE
@@ -251,7 +252,7 @@ export default function App() {
     const decayingContacts: string[] = [];
     
     activeContacts.forEach(contact => {
-      const contactNotes = notes.filter(n => n.contactId === contact.id);
+      const contactNotes = notes.filter(n => noteInvolvesContact(n, contact.id));
       if (contactNotes.length === 0) {
         decayingContacts.push(contact.name);
       } else {
@@ -411,7 +412,11 @@ export default function App() {
     setContacts(prev => prev.filter(c => c.id !== id));
     // Clean up or keep tasks but remove contact referencing
     setTasks(prev => prev.map(t => t.contactId === id ? { ...t, contactId: undefined } : t));
-    setNotes(prev => prev.map(n => n.contactId === id ? { ...n, contactId: undefined } : n));
+    setNotes(prev => prev.map(n => ({
+      ...n,
+      contactId: n.contactId === id ? undefined : n.contactId,
+      attendeeIds: n.attendeeIds?.filter(aid => aid !== id)
+    })));
     showToast('Contact deleted', 'info');
   };
 

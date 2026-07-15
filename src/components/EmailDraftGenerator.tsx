@@ -7,6 +7,7 @@ import { Contact, MeetingNote, MyselfProfile } from '../types';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { authedFetch } from '../lib/apiClient';
+import { noteInvolvesContact } from '../lib/noteUtils';
 import ModalShell from './ModalShell';
 
 interface EmailDraftGeneratorProps {
@@ -36,9 +37,9 @@ export default function EmailDraftGenerator({ contact, notes, profile, onClose }
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Get notes related to this contact
+  // Get notes related to this contact (as primary contact or as an attendee)
   const contactNotes = notes
-    .filter(n => n.contactId === contact.id)
+    .filter(n => noteInvolvesContact(n, contact.id))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 3);
 

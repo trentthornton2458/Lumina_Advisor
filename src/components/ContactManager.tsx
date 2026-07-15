@@ -9,6 +9,7 @@ import {
 import EmailDraftGenerator from './EmailDraftGenerator';
 import MeetingPrepChecklist from './MeetingPrepChecklist';
 import BehavioralIndexPanel from './BehavioralIndexPanel';
+import { noteInvolvesContact } from '../lib/noteUtils';
 
 interface ContactManagerProps {
   contacts: Contact[];
@@ -84,7 +85,7 @@ export default function ContactManager({
 
   const selectedContact = contacts.find(c => c.id === selectedContactId) || null;
   const contactNotes = notes
-    .filter(n => n.contactId === selectedContactId)
+    .filter(n => !!selectedContactId && noteInvolvesContact(n, selectedContactId))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const contactTasks = useMemo(() => 
@@ -101,7 +102,7 @@ export default function ContactManager({
     > = [];
 
     notes
-      .filter(n => n.contactId === selectedContactId)
+      .filter(n => !!selectedContactId && noteInvolvesContact(n, selectedContactId))
       .forEach(n => events.push({ type: 'note', date: n.date, data: n }));
 
     tasks
@@ -823,6 +824,13 @@ export default function ContactManager({
                                     </span>
                                   </div>
                                   <h4 className="font-bold text-stone-900 text-sm mt-1">{note.title}</h4>
+                                  {(() => {
+                                    const otherIds = [note.contactId, ...(note.attendeeIds || [])].filter(id => id && id !== selectedContactId);
+                                    const otherNames = otherIds.map(id => contacts.find(c => c.id === id)?.name).filter(Boolean);
+                                    return otherNames.length > 0 ? (
+                                      <p className="text-[10px] text-stone-450 font-medium mt-0.5">Also with {otherNames.join(', ')}</p>
+                                    ) : null;
+                                  })()}
                                   <p className="text-xs text-stone-600 leading-relaxed mt-2 whitespace-pre-wrap">{note.content.slice(0, 250)}{note.content.length > 250 ? '...' : ''}</p>
                                 </div>
                                 <div className="shrink-0 text-right">

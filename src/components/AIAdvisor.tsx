@@ -8,6 +8,7 @@ import {
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { authedFetch } from '../lib/apiClient';
+import { noteInvolvesContact, getNoteAttendeeIds } from '../lib/noteUtils';
 import AdvisorReportView from './AdvisorReportView';
 
 interface AIAdvisorProps {
@@ -46,13 +47,6 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
   const [addedTaskTitles, setAddedTaskTitles] = useState<string[]>([]);
   const [reportSaved, setReportSaved] = useState(false);
 
-  // Default pre-check of first 3 notes on load
-  useEffect(() => {
-    if (notes.length > 0 && selectedNoteIds.length === 0) {
-      setSelectedNoteIds(notes.map(n => n.id).slice(0, 3));
-    }
-  }, [notes]);
-
   // Pre-check all SOPs by default
   useEffect(() => {
     if (sops.length > 0 && selectedSopIds.length === 0) {
@@ -60,24 +54,48 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
     }
   }, [sops]);
 
-  // Filter notes based on selected contact or company
+  // Filter notes based on selected contact or company. A note counts as "in scope"
+  // if the target contact is either the primary contact or one of the attendees.
   const filteredNotes = React.useMemo(() => {
     return notes.filter(n => {
-      const matchesContact = !selectedContactId || n.contactId === selectedContactId;
-      
+      const matchesContact = !selectedContactId || noteInvolvesContact(n, selectedContactId);
+
       let matchesCompany = true;
       if (selectedCompanyId) {
         // Find contacts belonging to this company
         const companyContactIds = contacts
           .filter(c => c.companyId === selectedCompanyId || c.company.toLowerCase() === companies.find(cp => cp.id === selectedCompanyId)?.name.toLowerCase())
           .map(c => c.id);
-        
-        matchesCompany = companyContactIds.includes(n.contactId || '');
+
+        matchesCompany = getNoteAttendeeIds(n).some(id => companyContactIds.includes(id));
       }
-      
+
       return matchesContact && matchesCompany;
     });
   }, [notes, selectedContactId, selectedCompanyId, contacts, companies]);
+
+  // Reset note selection to the current scope whenever the target contact/company
+  // changes, and default-select its first few notes. Without this, a note checked
+  // while a different (or no) contact/company was targeted stayed selected forever —
+  // invisible in this filtered checklist, but still sent to the AI, which is how
+  // advice for one account ended up citing another account's notes.
+  const prevScopeRef = React.useRef<string>('');
+  useEffect(() => {
+    const scopeKey = `${selectedContactId}::${selectedCompanyId}`;
+    const scopeChanged = prevScopeRef.current !== scopeKey;
+    prevScopeRef.current = scopeKey;
+
+    setSelectedNoteIds(prev => {
+      if (scopeChanged) {
+        return filteredNotes.map(n => n.id).slice(0, 3);
+      }
+      // Same scope, but the notes list changed under us (e.g. still loading from
+      // Firestore at mount). Drop anything that fell out of scope, then re-fill
+      // defaults only if that leaves nothing selected.
+      const stillValid = prev.filter(id => filteredNotes.some(n => n.id === id));
+      return stillValid.length > 0 ? stillValid : filteredNotes.map(n => n.id).slice(0, 3);
+    });
+  }, [selectedContactId, selectedCompanyId, filteredNotes]);
 
   const handleToggleNoteSelection = (noteId: string) => {
     if (selectedNoteIds.includes(noteId)) {
@@ -128,7 +146,15 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
         : selectedCompanyId
         ? contacts.filter(c => c.companyId === selectedCompanyId)
         : contacts,
-      selectedNotes: notes.filter(n => selectedNoteIds.includes(n.id)),
+      // Filter against filteredNotes (already scoped to the target contact/company),
+      // not the raw notes list — guarantees an out-of-scope note ID can never leak
+      // into the AI payload even if selectedNoteIds state is ever stale.
+      selectedNotes: filteredNotes
+        .filter(n => selectedNoteIds.includes(n.id))
+        .map(n => ({
+          ...n,
+          attendeeNames: getNoteAttendeeIds(n).map(id => contacts.find(c => c.id === id)?.name).filter(Boolean)
+        })),
       userPrompt: userPrompt.trim() || undefined,
       activeSops: sops.filter(s => selectedSopIds.includes(s.id)),
       existingTasks: tasks.map(t => ({ title: t.title, completed: t.completed })),
@@ -384,7 +410,7 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
             ) : (
               filteredNotes.map(n => {
                 const isSelected = selectedNoteIds.includes(n.id);
-                const noteContact = contacts.find(c => c.id === n.contactId);
+                const noteAttendees = getNoteAttendeeIds(n).map(id => contacts.find(c => c.id === id)?.name).filter(Boolean);
                 return (
                   <button
                     key={n.id}
@@ -396,7 +422,7 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
                     <div className="min-w-0 pr-1">
                       <p className="text-[9px] font-mono text-slate-400">{n.date} • {n.category}</p>
                       <h4 className="text-slate-900 truncate mt-0.5">{n.title}</h4>
-                      {noteContact && <p className="text-[9px] text-slate-500 truncate font-semibold">with {noteContact.name}</p>}
+                      {noteAttendees.length > 0 && <p className="text-[9px] text-slate-500 truncate font-semibold">with {noteAttendees.join(', ')}</p>}
                     </div>
                     <div className={`w-3.5 h-3.5 border rounded-sm mt-0.5 flex items-center justify-center shrink-0 ${
                       isSelected ? 'bg-slate-900 border-slate-900 text-white' : 'border-slate-300 bg-white'

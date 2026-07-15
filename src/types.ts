@@ -31,7 +31,8 @@ export interface MeetingNote {
   id: string;
   date: string; // ISO format (YYYY-MM-DD)
   title: string;
-  contactId?: string; // Links to a Contact
+  contactId?: string; // Primary contact this note is linked to
+  attendeeIds?: string[]; // Additional contacts present in the meeting, beyond contactId
   companyId?: string; // Optional links to a Company
   content: string;
   category: NoteCategory;
