@@ -899,6 +899,7 @@ export default function App() {
                 <SentimentDashboard
                   notes={notes}
                   contacts={contacts}
+                  companies={companies}
                 />
               )}
 

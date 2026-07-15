@@ -1,5 +1,18 @@
 export type RelationshipStatus = 'Warm' | 'Active' | 'Cold' | 'Neutral';
-export type NoteCategory = 'Discovery' | 'Strategy Sync' | 'Client Pitch' | 'Negotiation' | 'Catch-up' | 'Follow-up' | 'Support';
+export type NoteCategory =
+  | 'Discovery'
+  | 'Demo'
+  | 'Client Pitch'
+  | 'Negotiation'
+  | 'Onboarding'
+  | 'Strategy Sync'
+  | 'QBR'
+  | 'Renewal'
+  | 'Escalation'
+  | 'Support'
+  | 'Internal'
+  | 'Catch-up'
+  | 'Follow-up';
 export type TaskPriority = 'High' | 'Medium' | 'Low';
 
 export interface Company {
@@ -40,6 +53,7 @@ export interface MeetingNote {
   engagementLevel: number; // 1 to 10 (10 = Highly Engaged, 1 = Completely Indifferent)
   keyPoints: string[];
   insights?: string; // AI generated summary/advice if triggered
+  coachingOpportunities?: string[]; // AI generated coaching tips for the note author, if applicable
   isPrivate?: boolean;
 }
 

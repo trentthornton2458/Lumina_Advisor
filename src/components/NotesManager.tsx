@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { MeetingNote, Contact, NoteCategory } from '../types';
 import {
   Calendar, Search, Filter, Plus, Trash2, Edit3, Tag,
-  User, Users, Check, CheckSquare, Smile, Eye, MessageSquareCode, Sparkles, NotebookTabs, Lock, X
+  User, Users, Check, CheckSquare, Smile, Eye, MessageSquareCode, Sparkles, NotebookTabs, Lock, X, Loader2, GraduationCap
 } from 'lucide-react';
-import { noteInvolvesContact, getNoteAttendeeIds } from '../lib/noteUtils';
+import { noteInvolvesContact, getNoteAttendeeIds, generateFallbackNoteInsights } from '../lib/noteUtils';
+import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
+import { authedFetch } from '../lib/apiClient';
 
 interface NotesManagerProps {
   notes: MeetingNote[];
@@ -45,11 +48,21 @@ export default function NotesManager({
   const [keyPointInput, setKeyPointInput] = useState('');
   const [keyPointsList, setKeyPointsList] = useState<string[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [insights, setInsights] = useState<string | undefined>(undefined);
+  const [coachingOpportunities, setCoachingOpportunities] = useState<string[]>([]);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [insightsSimulated, setInsightsSimulated] = useState(false);
 
   // Filter notes view: 'standard' or 'private'
   const [noteViewFilter, setNoteViewFilter] = useState<'standard' | 'private'>('standard');
 
-  const categories: Array<NoteCategory | 'All'> = ['All', 'Discovery', 'Strategy Sync', 'Client Pitch', 'Negotiation', 'Catch-up', 'Follow-up'];
+  const { showToast } = useToast();
+  const { user } = useAuth();
+
+  const categories: Array<NoteCategory | 'All'> = [
+    'All', 'Discovery', 'Demo', 'Client Pitch', 'Negotiation', 'Onboarding',
+    'Strategy Sync', 'QBR', 'Renewal', 'Escalation', 'Support', 'Internal', 'Catch-up', 'Follow-up'
+  ];
 
   // Sorting and filtering notes
   const filteredNotes = notes
@@ -105,6 +118,9 @@ export default function NotesManager({
     setKeyPointInput('');
     setKeyPointsList([]);
     setIsPrivate(false);
+    setInsights(undefined);
+    setCoachingOpportunities([]);
+    setInsightsSimulated(false);
     setIsAdding(true);
     setIsEditing(false);
   };
@@ -128,8 +144,61 @@ export default function NotesManager({
     setKeyPointInput('');
     setKeyPointsList(note.keyPoints);
     setIsPrivate(note.isPrivate || false);
+    setInsights(note.insights);
+    setCoachingOpportunities(note.coachingOpportunities || []);
+    setInsightsSimulated(false);
     setIsEditing(true);
     setIsAdding(false);
+  };
+
+  const handleGenerateInsights = async () => {
+    if (!content.trim()) {
+      showToast('Add some conversation content before generating insights.', 'warning');
+      return;
+    }
+    setIsGeneratingInsights(true);
+    try {
+      const attendeeNames = [contactId, ...attendeeIds]
+        .map(id => contacts.find(c => c.id === id)?.name)
+        .filter(Boolean);
+
+      const response = await authedFetch('/api/note-insights', user, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, category, content, attendeeNames })
+      });
+
+      if (!response.ok) {
+        throw new Error('Server returned an error status while analyzing the note.');
+      }
+
+      const resData = await response.json();
+
+      if (resData.status === 'error' && (resData.errorType === 'apiKeyMissing' || resData.errorType === 'apiServiceUnavailable')) {
+        const fallback = generateFallbackNoteInsights(content, sentimentScore, engagementLevel);
+        applyInsightsResult(fallback);
+        showToast('AI unavailable — extracted key points locally instead (simulation mode).', 'info');
+      } else if (resData.status === 'success' && resData.data) {
+        applyInsightsResult(resData.data);
+        showToast('Insights generated — key points and sentiment sliders updated.', 'success');
+      } else {
+        throw new Error('Received unexpected response while generating insights.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || 'Failed to generate insights.', 'error');
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
+  const applyInsightsResult = (result: { keyPoints: string[]; insights: string; coachingOpportunities: string[]; sentimentScore: number; engagementLevel: number; isSimulated?: boolean }) => {
+    setKeyPointsList(result.keyPoints);
+    setInsights(result.insights);
+    setCoachingOpportunities(result.coachingOpportunities || []);
+    setSentimentScore(result.sentimentScore);
+    setEngagementLevel(result.engagementLevel);
+    setInsightsSimulated(!!result.isSimulated);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -158,6 +227,8 @@ export default function NotesManager({
         sentimentScore,
         engagementLevel,
         keyPoints: finalKeyPoints,
+        insights,
+        coachingOpportunities: coachingOpportunities.length > 0 ? coachingOpportunities : undefined,
         isPrivate
       };
       onAddNote(newNote);
@@ -176,7 +247,8 @@ export default function NotesManager({
         sentimentScore,
         engagementLevel,
         keyPoints: finalKeyPoints,
-        insights: existing?.insights, // Preserve AI insights if existing
+        insights: insights ?? existing?.insights,
+        coachingOpportunities: coachingOpportunities.length > 0 ? coachingOpportunities : existing?.coachingOpportunities,
         isPrivate
       };
       onUpdateNote(updatedNote);
@@ -386,9 +458,16 @@ export default function NotesManager({
                     className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-stone-500"
                   >
                     <option value="Discovery">Discovery (Introductory Context)</option>
-                    <option value="Strategy Sync">Strategy Sync (Formal Planning)</option>
+                    <option value="Demo">Demo (Product Walkthrough)</option>
                     <option value="Client Pitch">Client Pitch (Pitch / Proposal)</option>
                     <option value="Negotiation">Negotiation (Contract / Pricing discussion)</option>
+                    <option value="Onboarding">Onboarding (New Client Ramp-up)</option>
+                    <option value="Strategy Sync">Strategy Sync (Formal Planning)</option>
+                    <option value="QBR">QBR (Quarterly Business Review)</option>
+                    <option value="Renewal">Renewal (Contract Renewal Discussion)</option>
+                    <option value="Escalation">Escalation (Urgent Issue / De-escalation)</option>
+                    <option value="Support">Support (Issue Resolution)</option>
+                    <option value="Internal">Internal (Team-only, no client present)</option>
                     <option value="Catch-up">Catch-up (Informal / Coffee networking)</option>
                     <option value="Follow-up">Follow-up (Brief sync / Next actions)</option>
                   </select>
@@ -556,6 +635,53 @@ export default function NotesManager({
                   onChange={(e) => setContent(e.target.value)}
                   className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-stone-500 resize-none font-sans"
                 />
+              </div>
+
+              {/* AI-generated insights */}
+              <div className="border border-dashed border-stone-300 rounded-xl p-4 bg-stone-50/60">
+                <button
+                  type="button"
+                  onClick={handleGenerateInsights}
+                  disabled={isGeneratingInsights || !content.trim()}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 disabled:bg-stone-300 disabled:cursor-not-allowed transition"
+                >
+                  {isGeneratingInsights ? (
+                    <><Loader2 size={14} className="animate-spin" /> Analyzing Conversation...</>
+                  ) : (
+                    <><Sparkles size={14} /> Generate Insights from Conversation</>
+                  )}
+                </button>
+                <p className="text-[10px] text-stone-450 text-center mt-1.5">
+                  Extracts key points, coaching opportunities, and suggests Sentiment/Engagement above from the narrative you've written.
+                </p>
+
+                {(insights || coachingOpportunities.length > 0) && (
+                  <div className="mt-3 pt-3 border-t border-dashed border-stone-250 space-y-3">
+                    {insightsSimulated && (
+                      <span className="inline-block text-[9px] px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-full font-bold uppercase tracking-wider">
+                        Simulation Mode — AI unavailable
+                      </span>
+                    )}
+                    {insights && (
+                      <div>
+                        <h5 className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Conversation Insights</h5>
+                        <p className="text-xs text-stone-700 leading-relaxed">{insights}</p>
+                      </div>
+                    )}
+                    {coachingOpportunities.length > 0 && (
+                      <div>
+                        <h5 className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <GraduationCap size={12} /> Coaching Opportunities
+                        </h5>
+                        <ul className="space-y-1">
+                          {coachingOpportunities.map((tip, i) => (
+                            <li key={i} className="text-xs text-blue-900 bg-blue-50 border border-blue-150 rounded-lg px-2.5 py-1.5">{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end gap-2">
@@ -730,22 +856,34 @@ export default function NotesManager({
               {/* Inline AI insights summary if present */}
               {selectedNote.insights ? (
                 <div id="ai-insight-panel" className="bg-gradient-to-br from-stone-50 to-stone-100/50 rounded-xl p-4 border border-stone-200 flex items-start gap-3 mt-4">
-                  <div className="p-2 bg-stone-900 rounded-lg text-white">
+                  <div className="p-2 bg-stone-900 rounded-lg text-white shrink-0">
                     <Sparkles size={16} />
                   </div>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-semibold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
                       Personal Coach AI Analysis
                     </h4>
                     <p className="text-xs text-stone-650 mt-1 leading-relaxed">
                       {selectedNote.insights}
                     </p>
+                    {selectedNote.coachingOpportunities && selectedNote.coachingOpportunities.length > 0 && (
+                      <div className="mt-3">
+                        <h5 className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                          <GraduationCap size={12} /> Coaching Opportunities
+                        </h5>
+                        <ul className="space-y-1">
+                          {selectedNote.coachingOpportunities.map((tip, i) => (
+                            <li key={i} className="text-xs text-blue-900 bg-blue-50 border border-blue-150 rounded-lg px-2.5 py-1.5">{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="bg-stone-50 rounded-xl p-3 border border-dashed border-stone-200 text-center text-xs text-stone-400 mt-4 flex items-center justify-center gap-2">
                   <MessageSquareCode size={14} className="text-stone-400" />
-                  <span>No special AI advisory generated for this note yet. Use the <strong>AI Advisor</strong> tab to query.</span>
+                  <span>No AI insights generated for this note yet. Open <strong>Edit Note</strong> and use "Generate Insights from Conversation".</span>
                 </div>
               )}
             </div>

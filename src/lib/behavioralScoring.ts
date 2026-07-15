@@ -4,11 +4,17 @@ import { Contact, MeetingNote, NoteCategory, BehavioralWeightFactor, BehavioralS
 // Category importance for risk/read purposes before recency decay is applied.
 export const CATEGORY_WEIGHTS: Record<NoteCategory, number> = {
   'Negotiation': 1.5,
+  'Escalation': 1.5,
+  'Renewal': 1.4,
+  'QBR': 1.3,
   'Client Pitch': 1.2,
   'Strategy Sync': 1.2,
+  'Onboarding': 1.15,
   'Discovery': 1.1,
+  'Demo': 1.0,
   'Follow-up': 1.0,
   'Support': 1.0,
+  'Internal': 0.9,
   'Catch-up': 0.7,
 };
 const DEFAULT_CATEGORY_WEIGHT = 1.0;
@@ -121,7 +127,7 @@ export function computeSignalScores(contactNotes: MeetingNote[]): BehavioralSign
   const engagementRaw = weightedAverage(weighted.map(w => ({ value: w.note.engagementLevel, weight: w.effectiveWeight })));
 
   const frictionWeight = weighted
-    .filter(w => w.note.sentimentScore <= FRICTION_SENTIMENT_THRESHOLD || w.note.category === 'Negotiation')
+    .filter(w => w.note.sentimentScore <= FRICTION_SENTIMENT_THRESHOLD || w.note.category === 'Negotiation' || w.note.category === 'Escalation')
     .reduce((sum, w) => sum + w.effectiveWeight, 0);
   const frictionRisk = totalWeight > 0 ? (frictionWeight / totalWeight) * 100 : 0;
 
