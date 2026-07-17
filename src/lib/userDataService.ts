@@ -66,8 +66,6 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
     const hasAnyCloudData = snapshots.some(snap => snap.exists());
 
     if (!hasAnyCloudData) {
-      console.log('No cloud data found for user. Checking localStorage for migration...');
-      
       // Perform one-time migration from localStorage if it exists
       const localContacts = localStorage.getItem('c_notes_contacts');
       const localNotes = localStorage.getItem('c_notes_notes');
@@ -112,7 +110,6 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
         data.behavioralProfiles ||
         localSetupCompleted === 'true'
       ) {
-        console.log('Migrating localStorage data to Firestore for user:', uid);
         await Promise.all([
           data.contacts && setDoc(docRefs.contacts, { items: data.contacts }),
           data.notes && setDoc(docRefs.notes, { items: data.notes }),
