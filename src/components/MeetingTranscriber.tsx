@@ -76,6 +76,7 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isVisualizerActiveRef = useRef(false);
 
   // Check for browser support
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -83,6 +84,7 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
 
   // Stop Visualizer Helper
   const stopVisualizer = useCallback(() => {
+    isVisualizerActiveRef.current = false;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -101,14 +103,23 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
   const startVisualizer = useCallback(async () => {
     try {
       stopVisualizer(); // Stop any legacy context
+      isVisualizerActiveRef.current = true;
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Check if we were stopped while waiting for the stream
+      if (!isVisualizerActiveRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioContextClass();
       audioContextRef.current = audioCtx;
       
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64; // Small size for simple bars
+      analyser.fftSize = 256;
       analyserRef.current = analyser;
       
       const source = audioCtx.createMediaStreamSource(stream);
@@ -117,8 +128,22 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       
+      let smoothedVolume = 0;
+      const phases = [0, 0, 0];
+
+      const waveParams = [
+        { frequency: 0.05, amplitudeMult: 1.0, phaseSpeed: 0.12, color: '#3b82f6', lineWidth: 1.5 },   // Brand Blue
+        { frequency: 0.08, amplitudeMult: 0.6, phaseSpeed: -0.18, color: '#818cf8', lineWidth: 1.0 },  // Light Indigo
+        { frequency: 0.03, amplitudeMult: 0.4, phaseSpeed: 0.07, color: '#60a5fa', lineWidth: 0.8 }    // Sky Blue
+      ];
+
       const draw = () => {
-        if (!canvasRef.current) return;
+        if (!isVisualizerActiveRef.current) return;
+        if (!canvasRef.current) {
+          animationFrameRef.current = requestAnimationFrame(draw);
+          return;
+        }
+
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -127,28 +152,49 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
         const height = canvas.height;
         ctx.clearRect(0, 0, width, height);
         
-        analyser.getByteFrequencyData(dataArray);
+        analyser.getByteTimeDomainData(dataArray);
         
-        const barWidth = (width / bufferLength) * 1.5;
-        let x = 0;
-        
+        // Calculate audio volume (average deviation from 128)
+        let total = 0;
         for (let i = 0; i < bufferLength; i++) {
-          const percent = dataArray[i] / 255;
-          const barHeight = Math.max(4, percent * height * 0.95);
-          
-          const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
-          gradient.addColorStop(0, '#3b82f6'); // Brand Blue
-          gradient.addColorStop(1, '#818cf8'); // Indigo
-          
-          ctx.fillStyle = gradient;
-          const yPos = height - barHeight;
-          const radius = 3;
-          ctx.beginPath();
-          ctx.roundRect(x, yPos, barWidth - 2, barHeight, radius);
-          ctx.fill();
-          
-          x += barWidth;
+          total += Math.abs(dataArray[i] - 128);
         }
+        const average = total / bufferLength;
+        const targetVolume = Math.min(1.0, average / 40.0); // Normalize based on average speaking levels
+
+        // Lerp for smooth transitions
+        smoothedVolume = smoothedVolume * 0.8 + targetVolume * 0.2;
+
+        // Render each wave
+        waveParams.forEach((param, index) => {
+          // Increment phase over time
+          phases[index] += param.phaseSpeed;
+          
+          ctx.beginPath();
+          // Draw wave line across the canvas width
+          for (let x = 0; x <= width; x++) {
+            // Envelope to taper/pinch the wave at the left/right boundaries (x=0, x=width)
+            const envelope = Math.sin((x / width) * Math.PI);
+
+            // Calculate y using a combination of sine, amplitude (base + audio-reactive), and the envelope
+            const baseAmplitude = 2.0; // Soft continuous background breathing
+            const maxReactiveAmplitude = (height / 2) - 3;
+            const currentAmplitude = baseAmplitude + smoothedVolume * maxReactiveAmplitude;
+
+            const y = (height / 2) + Math.sin(x * param.frequency + phases[index]) * (currentAmplitude * param.amplitudeMult) * envelope;
+
+            if (x === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          
+          ctx.strokeStyle = param.color;
+          ctx.lineWidth = param.lineWidth;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        });
         
         animationFrameRef.current = requestAnimationFrame(draw);
       };
