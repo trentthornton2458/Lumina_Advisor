@@ -112,7 +112,6 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
         data.behavioralProfiles ||
         localSetupCompleted === 'true'
       ) {
-        console.log('Migrating localStorage data to Firestore for user:', uid);
         await Promise.all([
           data.contacts && setDoc(docRefs.contacts, { items: data.contacts }),
           data.notes && setDoc(docRefs.notes, { items: data.notes }),
