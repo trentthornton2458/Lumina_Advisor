@@ -3,9 +3,10 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Company, Contact } from '../types';
 import { 
   Building2, Globe, Tag, Search, Plus, Trash2, Edit2, 
-  X, Check, Users, FileText, ClipboardList, Info
+  X, Check, Users, FileText, ClipboardList, Info, GitCommit
 } from 'lucide-react';
 import { useToast } from './Toast';
+import SmartOrgChart from './SmartOrgChart';
 
 interface CompanyManagerProps {
   companies: Company[];
@@ -13,6 +14,7 @@ interface CompanyManagerProps {
   onAddCompany: (company: Company) => void;
   onUpdateCompany: (company: Company) => void;
   onDeleteCompany: (id: string) => void;
+  onUpdateContact: (contact: Contact) => void;
   triggerAdd?: number;
 }
 
@@ -22,6 +24,7 @@ export default function CompanyManager({
   onAddCompany,
   onUpdateCompany,
   onDeleteCompany,
+  onUpdateContact,
   triggerAdd
 }: CompanyManagerProps) {
   const { showToast } = useToast();
@@ -29,6 +32,7 @@ export default function CompanyManager({
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
     companies.length > 0 ? companies[0].id : null
   );
+  const [companySubTab, setCompanySubTab] = useState<'details' | 'orgchart'>('details');
   
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -53,8 +57,10 @@ export default function CompanyManager({
   useEffect(() => {
     if (companies.length > 0 && (!selectedCompanyId || !companies.some(c => c.id === selectedCompanyId))) {
       setSelectedCompanyId(companies[0].id);
+      setCompanySubTab('details');
     } else if (companies.length === 0) {
       setSelectedCompanyId(null);
+      setCompanySubTab('details');
     }
   }, [companies, selectedCompanyId]);
 
@@ -408,63 +414,100 @@ export default function CompanyManager({
                 </div>
               </div>
 
-              {/* Description */}
-              {selectedCompany.description && (
-                <div className="space-y-1.5">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Overview</h4>
-                  <p className="text-xs text-slate-650 leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                    {selectedCompany.description}
-                  </p>
-                </div>
-              )}
-
-              {/* Historical Logs */}
-              <div className="space-y-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
-                  <FileText size={12} className="text-slate-400" />
-                  Historical Data & Records
-                </h4>
-                {selectedCompany.historicalData ? (
-                  <div className="bg-slate-900 border border-slate-950 p-5 rounded-2xl text-slate-200 font-mono text-xs whitespace-pre-wrap leading-relaxed shadow-inner max-h-[220px] overflow-y-auto">
-                    {selectedCompany.historicalData}
-                  </div>
-                ) : (
-                  <div className="bg-slate-50 border border-slate-100 p-6 rounded-2xl text-center italic text-xs text-slate-400">
-                    No historical logs captured. Click edit to add organizational context.
-                  </div>
-                )}
+              {/* Tabs selector */}
+              <div className="flex border-b border-slate-100 pb-px">
+                <button
+                  onClick={() => setCompanySubTab('details')}
+                  className={`px-4 py-2 text-xs font-bold tracking-wider uppercase border-b-2 transition-all duration-200 ${
+                    companySubTab === 'details'
+                      ? 'border-blue-600 text-blue-600 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Overview &amp; History
+                </button>
+                <button
+                  onClick={() => setCompanySubTab('orgchart')}
+                  className={`px-4 py-2 text-xs font-bold tracking-wider uppercase border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
+                    companySubTab === 'orgchart'
+                      ? 'border-blue-600 text-blue-600 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  <GitCommit size={14} className="rotate-90 text-blue-500" />
+                  Smart Org Chart
+                  <span className="bg-blue-100 text-blue-700 text-[9px] px-1.5 py-0.2 rounded-full font-bold">NEW</span>
+                </button>
               </div>
 
-              {/* Attached Contacts Section */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
-                  <Users size={12} className="text-slate-400" />
-                  Linked Contacts ({companyContacts.length})
-                </h4>
-                {companyContacts.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">
-                    No contacts are currently linked to this company. Update a contact's company to link them.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {companyContacts.map(con => (
-                      <div key={con.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between transition-colors shadow-2xs">
-                        <div className="min-w-0 pr-2">
-                          <p className="text-xs font-bold text-slate-800 truncate">{con.name}</p>
-                          <p className="text-[10px] text-slate-450 truncate mt-0.5">{con.position}</p>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
-                          con.relationStatus === 'Warm' ? 'bg-amber-50 text-amber-600' :
-                          con.relationStatus === 'Active' ? 'bg-emerald-50 text-emerald-600' :
-                          con.relationStatus === 'Cold' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {con.relationStatus}
-                        </span>
+              {companySubTab === 'details' ? (
+                <>
+                  {/* Description */}
+                  {selectedCompany.description && (
+                    <div className="space-y-1.5">
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Overview</h4>
+                      <p className="text-xs text-slate-655 leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                        {selectedCompany.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Historical Logs */}
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
+                      <FileText size={12} className="text-slate-400" />
+                      Historical Data & Records
+                    </h4>
+                    {selectedCompany.historicalData ? (
+                      <div className="bg-slate-900 border border-slate-950 p-5 rounded-2xl text-slate-200 font-mono text-xs whitespace-pre-wrap leading-relaxed shadow-inner max-h-[220px] overflow-y-auto">
+                        {selectedCompany.historicalData}
                       </div>
-                    ))}
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-100 p-6 rounded-2xl text-center italic text-xs text-slate-400">
+                        No historical logs captured. Click edit to add organizational context.
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  {/* Attached Contacts Section */}
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
+                      <Users size={12} className="text-slate-400" />
+                      Linked Contacts ({companyContacts.length})
+                    </h4>
+                    {companyContacts.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">
+                        No contacts are currently linked to this company. Update a contact's company to link them.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {companyContacts.map(con => (
+                          <div key={con.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between transition-colors shadow-2xs">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-xs font-bold text-slate-800 truncate">{con.name}</p>
+                              <p className="text-[10px] text-slate-450 truncate mt-0.5">{con.position}</p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                              con.relationStatus === 'Warm' ? 'bg-amber-50 text-amber-600' :
+                              con.relationStatus === 'Active' ? 'bg-emerald-50 text-emerald-600' :
+                              con.relationStatus === 'Cold' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {con.relationStatus}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <SmartOrgChart
+                  companyId={selectedCompany.id}
+                  companyName={selectedCompany.name}
+                  contacts={contacts}
+                  onUpdateContact={onUpdateContact}
+                />
+              )}
             </motion.div>
           ) : (
             /* BLANK STATE */

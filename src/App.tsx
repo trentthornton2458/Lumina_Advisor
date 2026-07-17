@@ -853,6 +853,7 @@ export default function App() {
                   onAddCompany={handleAddCompany}
                   onUpdateCompany={handleUpdateCompany}
                   onDeleteCompany={handleDeleteCompany}
+                  onUpdateContact={handleUpdateContact}
                 />
               )}
 
