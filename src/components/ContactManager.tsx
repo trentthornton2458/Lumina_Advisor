@@ -9,6 +9,7 @@ import {
 import EmailDraftGenerator from './EmailDraftGenerator';
 import MeetingPrepChecklist from './MeetingPrepChecklist';
 import BehavioralIndexPanel from './BehavioralIndexPanel';
+import ProfileComparisonModal from './ProfileComparisonModal';
 import { noteInvolvesContact } from '../lib/noteUtils';
 
 interface ContactManagerProps {
@@ -59,6 +60,7 @@ export default function ContactManager({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showEmailDraft, setShowEmailDraft] = useState(false);
   const [showPrepChecklist, setShowPrepChecklist] = useState(false);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   // States for form field values
   const [name, setName] = useState('');
@@ -299,13 +301,22 @@ export default function ContactManager({
       <div className="lg:col-span-4 bg-white rounded-xl shadow-xs border border-stone-200 p-4 flex flex-col h-[calc(100vh-220px)] lg:h-[700px]">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-stone-900 tracking-tight">Contacts ({contacts.length})</h2>
-          <button
-            id="add-contact-btn"
-            onClick={startAdd}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 text-white text-xs font-medium rounded-lg hover:bg-stone-800 transition"
-          >
-            <Plus size={14} /> Add Contact
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              id="compare-profiles-btn"
+              onClick={() => setShowComparisonModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition"
+            >
+              <Sparkles size={13} /> Compare Profiles
+            </button>
+            <button
+              id="add-contact-btn"
+              onClick={startAdd}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 text-white text-xs font-medium rounded-lg hover:bg-stone-800 transition"
+            >
+              <Plus size={14} /> Add Contact
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -960,6 +971,18 @@ export default function ContactManager({
           tasks={tasks}
           profile={profile!}
           onClose={() => setShowPrepChecklist(false)}
+        />
+      )}
+    </AnimatePresence>
+
+    {/* Profile Comparison Modal */}
+    <AnimatePresence>
+      {showComparisonModal && (
+        <ProfileComparisonModal
+          contacts={contacts}
+          behavioralProfiles={behavioralProfiles}
+          initialContactId={selectedContactId}
+          onClose={() => setShowComparisonModal(false)}
         />
       )}
     </AnimatePresence>
