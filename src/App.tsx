@@ -25,7 +25,8 @@ import { useAuth } from './context/AuthContext';
 import { noteInvolvesContact } from './lib/noteUtils';
 import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile, SelfOrgPlacements, PersonalNote } from './types';
 import {
-  INITIAL_CONTACTS, INITIAL_NOTES, INITIAL_TASKS, DEFAULT_PROFILE
+  INITIAL_CONTACTS, INITIAL_NOTES, INITIAL_TASKS, DEFAULT_PROFILE,
+  DEMO_COMPANIES, DEMO_CONTACTS, DEMO_NOTES
 } from './data/initialData';
 import {
   loadUserData, saveContacts, saveNotes, saveTasks, saveProfile, saveCompanies, saveSops, saveSettings,
@@ -573,6 +574,28 @@ export default function App() {
     setShowSetup(false);
   };
 
+  const handleLoadDemoAssets = useCallback(() => {
+    setCompanies(prev => {
+      const existingIds = new Set(prev.map(c => c.id));
+      const newComps = DEMO_COMPANIES.filter(c => !existingIds.has(c.id));
+      return [...prev, ...newComps];
+    });
+
+    setContacts(prev => {
+      const existingIds = new Set(prev.map(c => c.id));
+      const newCons = DEMO_CONTACTS.filter(c => !existingIds.has(c.id));
+      return [...prev, ...newCons];
+    });
+
+    setNotes(prev => {
+      const existingIds = new Set(prev.map(n => n.id));
+      const newNotes = DEMO_NOTES.filter(n => !existingIds.has(n.id));
+      return [...prev, ...newNotes];
+    });
+
+    showToast("Demo data has been successfully imported.", "success");
+  }, [showToast]);
+
   const handleImportData = (imported: { contacts: Contact[]; notes: MeetingNote[]; tasks: TaskReminder[]; profile: MyselfProfile }) => {
     if (imported.contacts) {
       setContacts(imported.contacts);
@@ -910,6 +933,7 @@ export default function App() {
                   triggerAdd={triggerAddContact}
                   behavioralProfiles={behavioralProfiles}
                   onSaveBehavioralProfile={handleSaveBehavioralProfile}
+                  onLoadDemoAssets={handleLoadDemoAssets}
                 />
               )}
 
@@ -926,6 +950,7 @@ export default function App() {
                   onIncludeSelfInCompany={handleIncludeSelfInCompany}
                   onRemoveSelfFromCompany={handleRemoveSelfFromCompany}
                   onUpdateSelfSupervisor={handleUpdateSelfSupervisor}
+                  onLoadDemoAssets={handleLoadDemoAssets}
                 />
               )}
 
@@ -947,6 +972,7 @@ export default function App() {
                   triggerAdd={triggerAddNote}
                   selectedNoteId={selectedNoteId}
                   onSelectNote={setSelectedNoteId}
+                  onLoadDemoAssets={handleLoadDemoAssets}
                 />
               )}
 

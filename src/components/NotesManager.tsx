@@ -18,6 +18,7 @@ interface NotesManagerProps {
   triggerAdd?: number;
   selectedNoteId?: string | null;
   onSelectNote?: (id: string | null) => void;
+  onLoadDemoAssets?: () => void;
 }
 
 export default function NotesManager({
@@ -28,7 +29,8 @@ export default function NotesManager({
   onDeleteNote,
   triggerAdd,
   selectedNoteId: propSelectedNoteId,
-  onSelectNote
+  onSelectNote,
+  onLoadDemoAssets
 }: NotesManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<NoteCategory | 'All'>('All');
@@ -923,12 +925,23 @@ export default function NotesManager({
             <NotebookTabs size={40} className="text-stone-300 mb-3" />
             <h3 className="font-medium text-stone-900 text-lg">No Meeting Logs Recorded</h3>
             <p className="text-stone-500 text-sm max-w-sm mt-1 mb-4">Log meeting contexts, phone conversations, client pitches or key personal reviews to start analyzing trends.</p>
-            <button
-              onClick={startAdd}
-              className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
-            >
-              Add Your First Note
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={startAdd}
+                className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
+              >
+                Add Your First Note
+              </button>
+              {onLoadDemoAssets && (
+                <button
+                  id="load-demo-assets-btn"
+                  onClick={onLoadDemoAssets}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition"
+                >
+                  Load Demo Assets
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
