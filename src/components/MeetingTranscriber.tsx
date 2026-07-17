@@ -30,6 +30,18 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
   
   // Recording state
   const [state, setState] = useState<RecordingState>('idle');
+  const stateRef = useRef<RecordingState>('idle');
+
+  // Sync state ref
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const updateState = useCallback((newState: RecordingState) => {
+    setState(newState);
+    stateRef.current = newState;
+  }, []);
+
   const [transcript, setTranscript] = useState('');
   const [interimText, setInterimText] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -177,17 +189,15 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const startRecording = useCallback(() => {
-    if (!isSupported) {
-      setError('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
-      return;
-    }
+  const startSpeechRecognition = useCallback(() => {
+    if (!SpeechRecognition) return;
 
-    setError(null);
-    setTranscript('');
-    setInterimText('');
-    transcriptRef.current = '';
-    setElapsedTime(0);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -220,100 +230,87 @@ export default function MeetingTranscriber({ contacts, onAddNote, onClose }: Mee
         return;
       }
       setError(`Recognition error: ${event.error}. Try again.`);
-      setState('idle');
+      updateState('idle');
       stopVisualizer();
     };
 
     recognition.onend = () => {
-      if (recognitionRef.current && state === 'recording') {
+      if (recognitionRef.current && stateRef.current === 'recording') {
         try {
-          recognition.start();
+          startSpeechRecognition();
         } catch (e) {
-          // Already started
+          console.error('Failed to auto-restart recognition:', e);
         }
       }
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-    setState('recording');
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Failed to start recognition instance:', e);
+    }
+  }, [SpeechRecognition, stopVisualizer, updateState]);
+
+  const startRecording = useCallback(() => {
+    if (!isSupported) {
+      setError('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    setError(null);
+    setTranscript('');
+    setInterimText('');
+    transcriptRef.current = '';
+    setElapsedTime(0);
+
+    updateState('recording');
+    startSpeechRecognition();
     startVisualizer();
     showToast('Recording started — speak clearly into your microphone', 'info');
-  }, [isSupported, SpeechRecognition, showToast, state, startVisualizer, stopVisualizer]);
+  }, [isSupported, startSpeechRecognition, startVisualizer, showToast, updateState]);
 
   const pauseRecording = useCallback(() => {
     if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
-    setState('paused');
+    updateState('paused');
     stopVisualizer();
-  }, [stopVisualizer]);
+  }, [stopVisualizer, updateState]);
 
   const resumeRecording = useCallback(() => {
-    if (!SpeechRecognition) return;
-    
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interim = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript + ' ';
-        } else {
-          interim += result[0].transcript;
-        }
-      }
-
-      if (finalTranscript) {
-        transcriptRef.current += finalTranscript;
-        setTranscript(transcriptRef.current);
-      }
-      setInterimText(interim);
-    };
-
-    recognition.onerror = (event: any) => {
-      if (event.error !== 'no-speech') {
-        setError(`Recognition error: ${event.error}`);
-        setState('idle');
-        stopVisualizer();
-      }
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setState('recording');
+    if (!isSupported) return;
+    setError(null);
+    updateState('recording');
+    startSpeechRecognition();
     startVisualizer();
-  }, [SpeechRecognition, startVisualizer, stopVisualizer]);
+  }, [isSupported, startSpeechRecognition, startVisualizer, updateState]);
 
   const stopAndProcess = useCallback(async () => {
     // Stop recording
     if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
     stopVisualizer();
 
-    if (elapsedTime < 30) {
-      setError('Recording is too short. Please record for at least 30 seconds.');
-      setState('paused');
+    if (elapsedTime < 3) {
+      setError('Recording is too short. Please record for at least 3 seconds.');
+      updateState('paused');
       return;
     }
 
     const fullTranscript = transcriptRef.current.trim();
-    if (!fullTranscript || fullTranscript.length < 20) {
+    if (!fullTranscript || fullTranscript.length < 10) {
       setError('Transcript is too short to analyze. Please record a longer conversation.');
-      setState('idle');
+      updateState('idle');
       return;
     }
 
-    setState('processing');
+    updateState('processing');
 
     try {
       const response = await authedFetch('/api/ai-advice', user, {
