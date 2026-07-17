@@ -23,13 +23,13 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { useAuth } from './context/AuthContext';
 import { noteInvolvesContact } from './lib/noteUtils';
-import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile } from './types';
+import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile, SelfOrgPlacements, PersonalNote } from './types';
 import {
   INITIAL_CONTACTS, INITIAL_NOTES, INITIAL_TASKS, DEFAULT_PROFILE
 } from './data/initialData';
 import {
   loadUserData, saveContacts, saveNotes, saveTasks, saveProfile, saveCompanies, saveSops, saveSettings,
-  saveAdvisorReports, saveBehavioralProfiles
+  saveAdvisorReports, saveBehavioralProfiles, saveSelfOrgPlacements, savePersonalNotes
 } from './lib/userDataService';
 
 import ContactManager from './components/ContactManager';
@@ -118,6 +118,14 @@ export default function App() {
   const [triggerAddTask, setTriggerAddTask] = useState(0);
   const [showTranscriber, setShowTranscriber] = useState(false);
 
+  // Selected note state for cross-tab navigation
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+
+  const handleSelectNote = (id: string | null) => {
+    setSelectedNoteId(id);
+    setActiveTab('notes');
+  };
+
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('lumina_dark_mode') === 'true';
   });
@@ -149,6 +157,8 @@ export default function App() {
   const [sops, setSops] = useState<SOPDocument[]>([]);
   const [advisorReports, setAdvisorReports] = useState<SavedAdvisorReport[]>([]);
   const [behavioralProfiles, setBehavioralProfiles] = useState<BehavioralProfile[]>([]);
+  const [selfOrgPlacements, setSelfOrgPlacements] = useState<SelfOrgPlacements>({});
+  const [personalNotes, setPersonalNotes] = useState<PersonalNote[]>([]);
   const [showSetup, setShowSetup] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [tabOrder, setTabOrder] = useState<string[]>(INITIAL_TAB_ORDER);
@@ -179,6 +189,8 @@ export default function App() {
         if (data.sops !== null) setSops(data.sops);
         if (data.advisorReports !== null) setAdvisorReports(data.advisorReports);
         if (data.behavioralProfiles !== null) setBehavioralProfiles(data.behavioralProfiles);
+        if (data.selfOrgPlacements !== null) setSelfOrgPlacements(data.selfOrgPlacements);
+        if (data.personalNotes !== null) setPersonalNotes(data.personalNotes);
 
         if (data.settings) {
           if (data.settings.darkMode !== undefined) setDarkMode(data.settings.darkMode);
@@ -333,6 +345,20 @@ export default function App() {
   }, [behavioralProfiles, user]);
 
   useEffect(() => {
+    localStorage.setItem('c_notes_self_org_placements', JSON.stringify(selfOrgPlacements));
+    if (user && isDataLoadedRef.current) {
+      saveSelfOrgPlacements(user.uid, selfOrgPlacements);
+    }
+  }, [selfOrgPlacements, user]);
+
+  useEffect(() => {
+    localStorage.setItem('c_notes_personal_notes', JSON.stringify(personalNotes));
+    if (user && isDataLoadedRef.current) {
+      savePersonalNotes(user.uid, personalNotes);
+    }
+  }, [personalNotes, user]);
+
+  useEffect(() => {
     localStorage.setItem('c_notes_active_tab', activeTab);
     if (user && isDataLoadedRef.current) {
       saveSettings(user.uid, {
@@ -420,6 +446,30 @@ export default function App() {
     showToast('Contact deleted', 'info');
   };
 
+  // Self Org Chart Placements
+  const handleIncludeSelfInCompany = (companyId: string) => {
+    setSelfOrgPlacements(prev => ({ ...prev, [companyId]: prev[companyId] || {} }));
+  };
+
+  const handleRemoveSelfFromCompany = (companyId: string) => {
+    setSelfOrgPlacements(prev => {
+      const next = { ...prev };
+      delete next[companyId];
+      return next;
+    });
+    // Clear any dangling references left by contacts who had "Me" set as their supervisor.
+    setContacts(prev => prev.map(c =>
+      (c.companyId === companyId || c.company.toLowerCase() === companies.find(cp => cp.id === companyId)?.name.toLowerCase())
+        && c.supervisorId === '__self__'
+        ? { ...c, supervisorId: undefined }
+        : c
+    ));
+  };
+
+  const handleUpdateSelfSupervisor = (companyId: string, supervisorId: string | undefined) => {
+    setSelfOrgPlacements(prev => ({ ...prev, [companyId]: { supervisorId } }));
+  };
+
   // Notes
   const handleAddNote = (note: MeetingNote) => {
     setNotes(prev => [note, ...prev]);
@@ -436,6 +486,22 @@ export default function App() {
     // Orphan linked tasks
     setTasks(prev => prev.map(t => t.meetingNoteId === id ? { ...t, meetingNoteId: undefined } : t));
     showToast('Note deleted', 'info');
+  };
+
+  // Personal Notes
+  const handleAddPersonalNote = (note: PersonalNote) => {
+    setPersonalNotes(prev => [note, ...prev]);
+    showToast(`Personal note "${note.title}" saved`, 'success');
+  };
+
+  const handleUpdatePersonalNote = (updated: PersonalNote) => {
+    setPersonalNotes(prev => prev.map(n => n.id === updated.id ? updated : n));
+    showToast(`Personal note "${updated.title}" updated`, 'success');
+  };
+
+  const handleDeletePersonalNote = (id: string) => {
+    setPersonalNotes(prev => prev.filter(n => n.id !== id));
+    showToast('Personal note deleted', 'info');
   };
 
   // Tasks
@@ -661,6 +727,7 @@ export default function App() {
                     { id: 'company', name: 'My Company' },
                     { id: 'position', name: 'My Position' },
                     { id: 'goals', name: 'Goals' },
+                    { id: 'personalNotes', name: 'Personal Notes' },
                     { id: 'data', name: 'Data & Backups' },
                     { id: 'legal', name: 'Legal & Privacy' },
                   ].map(sub => (
@@ -854,6 +921,11 @@ export default function App() {
                   onUpdateCompany={handleUpdateCompany}
                   onDeleteCompany={handleDeleteCompany}
                   onUpdateContact={handleUpdateContact}
+                  profile={profile}
+                  selfOrgPlacements={selfOrgPlacements}
+                  onIncludeSelfInCompany={handleIncludeSelfInCompany}
+                  onRemoveSelfFromCompany={handleRemoveSelfFromCompany}
+                  onUpdateSelfSupervisor={handleUpdateSelfSupervisor}
                 />
               )}
 
@@ -873,6 +945,8 @@ export default function App() {
                   onUpdateNote={handleUpdateNote}
                   onDeleteNote={handleDeleteNote}
                   triggerAdd={triggerAddNote}
+                  selectedNoteId={selectedNoteId}
+                  onSelectNote={setSelectedNoteId}
                 />
               )}
 
@@ -901,6 +975,9 @@ export default function App() {
                   notes={notes}
                   contacts={contacts}
                   companies={companies}
+                  personalNotes={personalNotes}
+                  profile={profile}
+                  onSelectNote={handleSelectNote}
                 />
               )}
 
@@ -913,6 +990,10 @@ export default function App() {
                   notes={notes}
                   tasks={tasks}
                   onImportData={handleImportData}
+                  personalNotes={personalNotes}
+                  onAddPersonalNote={handleAddPersonalNote}
+                  onUpdatePersonalNote={handleUpdatePersonalNote}
+                  onDeletePersonalNote={handleDeletePersonalNote}
                 />
               )}
 
@@ -928,6 +1009,8 @@ export default function App() {
                   savedReports={advisorReports}
                   behavioralProfiles={behavioralProfiles}
                   onSaveReport={handleSaveAdvisorReport}
+                  personalNotes={personalNotes}
+                  selfOrgPlacements={selfOrgPlacements}
                 />
               )}
 

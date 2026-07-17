@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Contact, MeetingNote, MyselfProfile, AISuggestionResponse, TaskReminder, TaskPriority, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile } from '../types';
+import { Contact, MeetingNote, MyselfProfile, AISuggestionResponse, TaskReminder, TaskPriority, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile, PersonalNote, SelfOrgPlacements } from '../types';
 import {
   User, AlertTriangle,
   HelpCircle, Calendar, RefreshCw, Send, BrainCircuit, CheckSquare, Check,
@@ -9,6 +9,7 @@ import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 import { authedFetch } from '../lib/apiClient';
 import { noteInvolvesContact, getNoteAttendeeIds } from '../lib/noteUtils';
+import { SELF_NODE_ID, buildCompanyOrgChartContacts } from '../lib/orgChartUtils';
 import AdvisorReportView from './AdvisorReportView';
 
 interface AIAdvisorProps {
@@ -22,9 +23,11 @@ interface AIAdvisorProps {
   savedReports: SavedAdvisorReport[];
   behavioralProfiles: BehavioralProfile[];
   onSaveReport: (report: SavedAdvisorReport) => void;
+  personalNotes: PersonalNote[];
+  selfOrgPlacements: SelfOrgPlacements;
 }
 
-export default function AIAdvisor({ contacts, notes, profile, companies, sops, tasks, onAddTask, savedReports, behavioralProfiles, onSaveReport }: AIAdvisorProps) {
+export default function AIAdvisor({ contacts, notes, profile, companies, sops, tasks, onAddTask, savedReports, behavioralProfiles, onSaveReport, personalNotes, selfOrgPlacements }: AIAdvisorProps) {
   const { showToast } = useToast();
   const { user } = useAuth();
   
@@ -138,6 +141,38 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
       ? behavioralProfiles.find(p => p.contactId === selectedContactId)
       : undefined;
 
+    // Resolve the in-scope company (either directly selected, or via the selected
+    // contact) so the AI can be told how the account's reporting structure looks,
+    // including where the user themselves fits in (from the Smart Org Chart).
+    const effectiveCompanyId = selectedCompanyId
+      || contacts.find(c => c.id === selectedContactId)?.companyId;
+    const effectiveCompany = effectiveCompanyId
+      ? companies.find(c => c.id === effectiveCompanyId)
+      : undefined;
+
+    const orgChartContext = effectiveCompany
+      ? {
+          companyName: effectiveCompany.name,
+          nodes: buildCompanyOrgChartContacts(
+            contacts, effectiveCompany.id, effectiveCompany.name, profile, selfOrgPlacements[effectiveCompany.id]
+          ).map(n => ({
+            name: n.id === SELF_NODE_ID ? `${profile.name} (You)` : n.name,
+            position: n.position,
+            supervisorName: !n.supervisorId
+              ? null
+              : n.supervisorId === SELF_NODE_ID
+              ? `${profile.name} (You)`
+              : contacts.find(c => c.id === n.supervisorId)?.name || null
+          }))
+        }
+      : null;
+
+    // Cap to the most recent 20 personal notes - there's no selection UI for these
+    // (unlike SOPs/notes), so avoid unbounded prompt growth as the collection grows.
+    const recentPersonalNotes = [...personalNotes]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 20);
+
     const payload = {
       userProfile: profile,
       adviceCategory,
@@ -160,7 +195,9 @@ export default function AIAdvisor({ contacts, notes, profile, companies, sops, t
       existingTasks: tasks.map(t => ({ title: t.title, completed: t.completed })),
       customTemplateStructure: adviceCategory === 'customTemplate' ? customTemplateStructure : undefined,
       priorReports,
-      behavioralProfile
+      behavioralProfile,
+      orgChartContext,
+      personalNotes: recentPersonalNotes
     };
 
     try {

@@ -1,32 +1,42 @@
 import React, { useMemo, useState } from 'react';
-import { Contact } from '../types';
+import { Contact, MyselfProfile } from '../types';
 import {
   GitCommit, User, ChevronDown, ChevronRight, RefreshCw,
-  Search, ShieldAlert, Award, Star, TrendingUp, HelpCircle
+  Search, ShieldAlert, Award, Star, TrendingUp, HelpCircle, UserPlus, X
 } from 'lucide-react';
+import { SELF_NODE_ID, buildCompanyOrgChartContacts } from '../lib/orgChartUtils';
 
 interface SmartOrgChartProps {
   companyId: string;
   companyName: string;
   contacts: Contact[];
   onUpdateContact: (contact: Contact) => void;
+  selfProfile: MyselfProfile;
+  selfPlacement?: { supervisorId?: string };
+  onIncludeSelf: () => void;
+  onRemoveSelf: () => void;
+  onUpdateSelfSupervisor: (supervisorId: string | undefined) => void;
 }
 
 export default function SmartOrgChart({
   companyId,
   companyName,
   contacts,
-  onUpdateContact
+  onUpdateContact,
+  selfProfile,
+  selfPlacement,
+  onIncludeSelf,
+  onRemoveSelf,
+  onUpdateSelfSupervisor
 }: SmartOrgChartProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
-  // Get contacts belonging to this company
+  // Get contacts belonging to this company, plus a synthetic "Me" node if the
+  // user has chosen to include themselves in this company's chart.
   const companyContacts = useMemo(() => {
-    return contacts.filter(
-      c => c.companyId === companyId || c.company.toLowerCase() === companyName.toLowerCase()
-    );
-  }, [contacts, companyId, companyName]);
+    return buildCompanyOrgChartContacts(contacts, companyId, companyName, selfProfile, selfPlacement);
+  }, [contacts, companyId, companyName, selfProfile, selfPlacement]);
 
   // Check if contact B is a descendant of contact A
   // This is used to prevent circular relationships when setting supervisorId
@@ -70,6 +80,10 @@ export default function SmartOrgChart({
   };
 
   const handleSupervisorChange = (contactId: string, supervisorId: string) => {
+    if (contactId === SELF_NODE_ID) {
+      onUpdateSelfSupervisor(supervisorId || undefined);
+      return;
+    }
     const contact = companyContacts.find(c => c.id === contactId);
     if (contact) {
       const updatedContact: Contact = {
@@ -123,6 +137,7 @@ export default function SmartOrgChart({
     const hasChildren = children.length > 0;
     const isHighlighted = highlightedContactIds.has(contact.id);
     const supervisorOptions = getSupervisorOptions(contact.id);
+    const isSelf = contact.id === SELF_NODE_ID;
 
     return (
       <div key={contact.id} className="relative select-none">
@@ -136,15 +151,17 @@ export default function SmartOrgChart({
           {/* Node body */}
           <div
             className={`w-full max-w-sm bg-white rounded-2xl border-2 p-4 transition-all duration-300 hover:shadow-lg ${
-              isHighlighted
+              isSelf
+                ? 'border-amber-400 ring-4 ring-amber-400/15'
+                : isHighlighted
                 ? 'ring-4 ring-blue-500/20 border-blue-600 scale-[1.01]'
                 : 'border-slate-100 shadow-sm'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-3">
-                <div className={`p-2.5 rounded-xl border shrink-0 ${getStatusBgColor(contact.status)} ${getStatusBorderColor(contact.status)}`}>
-                  <User size={16} />
+                <div className={`p-2.5 rounded-xl border shrink-0 ${isSelf ? 'bg-amber-50 text-amber-700 border-amber-200' : `${getStatusBgColor(contact.status)} ${getStatusBorderColor(contact.status)}`}`}>
+                  {isSelf ? <Star size={16} /> : <User size={16} />}
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-sm font-bold text-slate-800 truncate">{contact.name}</h4>
@@ -152,33 +169,53 @@ export default function SmartOrgChart({
                 </div>
               </div>
 
-              {/* Expand/Collapse Toggle if there are children */}
-              {hasChildren && (
-                <button
-                  onClick={() => toggleExpand(contact.id)}
-                  className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-lg transition shrink-0"
-                >
-                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {isSelf && (
+                  <button
+                    onClick={onRemoveSelf}
+                    className="p-1 hover:bg-amber-50 text-amber-500 hover:text-amber-700 rounded-lg transition"
+                    title="Remove yourself from this chart"
+                    aria-label="Remove yourself from this chart"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                {/* Expand/Collapse Toggle if there are children */}
+                {hasChildren && (
+                  <button
+                    onClick={() => toggleExpand(contact.id)}
+                    className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-lg transition"
+                  >
+                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Tags and Relations info */}
             <div className="flex flex-wrap gap-1.5 mt-3">
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
-                contact.affiliation === 'Internal'
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-150'
-                  : 'bg-slate-50 text-slate-600 border-slate-150'
-              }`}>
-                {contact.affiliation || 'External'}
-              </span>
-              <span className="bg-slate-50 text-slate-550 border border-slate-150 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                {contact.relationStatus} Connection
-              </span>
-              {contact.status && (
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${getStatusBgColor(contact.status)}`}>
-                  Status: {contact.status}
+              {isSelf ? (
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border bg-amber-50 text-amber-700 border-amber-200">
+                  You
                 </span>
+              ) : (
+                <>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                    contact.affiliation === 'Internal'
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-150'
+                      : 'bg-slate-50 text-slate-600 border-slate-150'
+                  }`}>
+                    {contact.affiliation || 'External'}
+                  </span>
+                  <span className="bg-slate-50 text-slate-550 border border-slate-150 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                    {contact.relationStatus} Connection
+                  </span>
+                  {contact.status && (
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${getStatusBgColor(contact.status)}`}>
+                      Status: {contact.status}
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
@@ -230,19 +267,37 @@ export default function SmartOrgChart({
           </p>
         </div>
 
-        {/* Search tool in Org Chart */}
-        {companyContacts.length > 0 && (
-          <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-            <input
-              type="text"
-              placeholder="Highlight contact by name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border border-slate-200 focus:outline-none focus:border-blue-500 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 transition"
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Self-placement toggle */}
+          {selfPlacement === undefined ? (
+            <button
+              onClick={onIncludeSelf}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl transition"
+            >
+              <UserPlus size={14} />
+              Add Myself
+            </button>
+          ) : (
+            <span className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold rounded-xl">
+              <Star size={14} />
+              You're on this chart
+            </span>
+          )}
+
+          {/* Search tool in Org Chart */}
+          {companyContacts.length > 0 && (
+            <div className="relative max-w-xs w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+              <input
+                type="text"
+                placeholder="Highlight contact by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white border border-slate-200 focus:outline-none focus:border-blue-500 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 transition"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {companyContacts.length === 0 ? (

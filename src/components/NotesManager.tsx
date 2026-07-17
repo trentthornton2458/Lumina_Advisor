@@ -16,6 +16,8 @@ interface NotesManagerProps {
   onUpdateNote: (note: MeetingNote) => void;
   onDeleteNote: (id: string) => void;
   triggerAdd?: number;
+  selectedNoteId?: string | null;
+  onSelectNote?: (id: string | null) => void;
 }
 
 export default function NotesManager({
@@ -24,13 +26,40 @@ export default function NotesManager({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
-  triggerAdd
+  triggerAdd,
+  selectedNoteId: propSelectedNoteId,
+  onSelectNote
 }: NotesManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<NoteCategory | 'All'>('All');
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
+  
+  const [localSelectedNoteId, setLocalSelectedNoteId] = useState<string | null>(
     notes.length > 0 ? notes[0].id : null
   );
+
+  const selectedNoteId = propSelectedNoteId !== undefined ? propSelectedNoteId : localSelectedNoteId;
+  
+  const setSelectedNoteId = (id: string | null) => {
+    if (onSelectNote) {
+      onSelectNote(id);
+    } else {
+      setLocalSelectedNoteId(id);
+    }
+  };
+
+  // Sync prop changes
+  useEffect(() => {
+    if (propSelectedNoteId !== undefined && propSelectedNoteId !== null) {
+      setLocalSelectedNoteId(propSelectedNoteId);
+    }
+  }, [propSelectedNoteId]);
+
+  // Set initial selected note if none is set
+  useEffect(() => {
+    if (selectedNoteId === null && notes.length > 0) {
+      setSelectedNoteId(notes[0].id);
+    }
+  }, [notes, selectedNoteId]);
   
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

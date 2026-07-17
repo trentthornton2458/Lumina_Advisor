@@ -85,6 +85,24 @@ export interface MyselfProfile {
   profilePicture?: string;
 }
 
+// Per-company placement of the "Myself" profile within a Smart Org Chart.
+// A companyId key present means the user has chosen to appear in that
+// company's chart; supervisorId is either a real Contact.id or SELF_NODE_ID
+// (see src/lib/orgChartUtils.ts) if another contact reports to the user.
+export interface SelfOrgPlacements {
+  [companyId: string]: { supervisorId?: string };
+}
+
+export interface PersonalNote {
+  id: string;
+  date: string; // ISO format (YYYY-MM-DD)
+  title: string;
+  content: string;
+  tags?: string[];
+  createdAt: string; // ISO datetime
+  updatedAt?: string; // ISO datetime, set on every edit after creation
+}
+
 export interface SOPDocument {
   id: string;
   title: string;

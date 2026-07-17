@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Company, Contact } from '../types';
-import { 
-  Building2, Globe, Tag, Search, Plus, Trash2, Edit2, 
+import { Company, Contact, MyselfProfile, SelfOrgPlacements } from '../types';
+import {
+  Building2, Globe, Tag, Search, Plus, Trash2, Edit2,
   X, Check, Users, FileText, ClipboardList, Info, GitCommit
 } from 'lucide-react';
 import { useToast } from './Toast';
@@ -16,6 +16,11 @@ interface CompanyManagerProps {
   onDeleteCompany: (id: string) => void;
   onUpdateContact: (contact: Contact) => void;
   triggerAdd?: number;
+  profile: MyselfProfile;
+  selfOrgPlacements: SelfOrgPlacements;
+  onIncludeSelfInCompany: (companyId: string) => void;
+  onRemoveSelfFromCompany: (companyId: string) => void;
+  onUpdateSelfSupervisor: (companyId: string, supervisorId: string | undefined) => void;
 }
 
 export default function CompanyManager({
@@ -25,7 +30,12 @@ export default function CompanyManager({
   onUpdateCompany,
   onDeleteCompany,
   onUpdateContact,
-  triggerAdd
+  triggerAdd,
+  profile,
+  selfOrgPlacements,
+  onIncludeSelfInCompany,
+  onRemoveSelfFromCompany,
+  onUpdateSelfSupervisor
 }: CompanyManagerProps) {
   const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -506,6 +516,11 @@ export default function CompanyManager({
                   companyName={selectedCompany.name}
                   contacts={contacts}
                   onUpdateContact={onUpdateContact}
+                  selfProfile={profile}
+                  selfPlacement={selfOrgPlacements[selectedCompany.id]}
+                  onIncludeSelf={() => onIncludeSelfInCompany(selectedCompany.id)}
+                  onRemoveSelf={() => onRemoveSelfFromCompany(selectedCompany.id)}
+                  onUpdateSelfSupervisor={(supervisorId) => onUpdateSelfSupervisor(selectedCompany.id, supervisorId)}
                 />
               )}
             </motion.div>

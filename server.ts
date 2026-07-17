@@ -181,7 +181,9 @@ If "PRIOR SAVED ADVISOR REPORTS" are supplied, treat them as ground truth for wh
 If a "CONTACT BEHAVIORAL/COMMUNICATION PROFILE" is supplied, factor its traits/recommended approach into your tone and recommendations without repeating its disclaimer.
 If adviceCategory is "customTemplate", you MUST return a single section titled "Custom Output" whose "body" field matches the layout structure provided in customTemplateStructure EXACTLY.
 If activeSops are provided, you MUST ensure that all recommended actions and insights follow the rules and processes outlined in those SOPs.
-Do not recommend any tasks that duplicate the existing active tasks provided.`;
+Do not recommend any tasks that duplicate the existing active tasks provided.
+If an ORGANIZATIONAL HIERARCHY / REPORTING STRUCTURE is supplied, use it to identify who holds influence/decision authority in the account and how the user's own position (marked "(You)") relates to it when giving relationship-navigation or escalation advice.
+If the user's PERSONAL NOTES are supplied, treat them as private freeform context (ideas, reminders, goals) — you may draw on them for personal productivity advice, but they are not conversation history with contacts and should not be cited as if they were.`;
 
     const contents = `
 === USER PROFILE ===
@@ -217,6 +219,22 @@ ${
         )
         .join('\n\n')
     : 'No meeting logs provided/selected.'
+}
+
+=== ORGANIZATIONAL HIERARCHY / REPORTING STRUCTURE ===
+${
+  req.body.orgChartContext && req.body.orgChartContext.nodes && req.body.orgChartContext.nodes.length > 0
+    ? `Company: ${req.body.orgChartContext.companyName}\n` + req.body.orgChartContext.nodes
+        .map((n: any) => `- ${n.name} (${n.position})${n.supervisorName ? ` reports to ${n.supervisorName}` : ' — top of the reporting chain'}`)
+        .join('\n')
+    : 'No org chart / reporting hierarchy has been mapped for this scope.'
+}
+
+=== USER'S PERSONAL NOTES ===
+${
+  req.body.personalNotes && req.body.personalNotes.length > 0
+    ? req.body.personalNotes.map((n: any) => `* [${n.date}] ${n.title}: ${n.content}${n.tags && n.tags.length > 0 ? ` (tags: ${n.tags.join(', ')})` : ''}`).join('\n')
+    : 'No personal notes recorded.'
 }
 
 === STANDARD OPERATING PROCEDURES (SOPS) ===
@@ -657,6 +675,133 @@ Deliver your response strictly adhering to the JSON structure provided.
       status: 'error',
       errorType: 'internalError',
       message: 'An error occurred during note analysis: ' + errMsg,
+    });
+  }
+});
+
+// AI Coaching Tips Endpoint - synthesizes a strengths/improvement narrative from
+// a recent window of meeting notes + personal notes (Sentiment & Trends > Coaching tab).
+app.post('/api/coaching-tips', requireAuth, async (req, res) => {
+  try {
+    const { profile, notes, personalNotes, dayCount } = req.body;
+
+    if (!profile) {
+      return res.status(400).json({ error: 'User profile is required.' });
+    }
+
+    let ai;
+    try {
+      ai = getGenAI();
+    } catch (err: any) {
+      if (err.message === 'GEMINI_API_KEY_MISSING') {
+        return res.status(200).json({
+          status: 'error',
+          errorType: 'apiKeyMissing',
+          message: 'The Gemini API Key is not configured. Please add GEMINI_API_KEY in the Secrets panel in AI Studio.',
+        });
+      }
+      throw err;
+    }
+
+    const window = dayCount || 10;
+
+    const systemInstruction = `You are a professional performance coach reviewing a salesperson/account manager's last ${window} days of activity.
+${PROTECTED_ATTRIBUTE_GUARDRAIL}
+Analyze the meeting notes provided (with sentiment/engagement scores and any flagged coaching opportunities) and the user's personal notes. Ground everything strictly in the evidence given — do not invent facts or cite specifics that aren't present.
+Produce "strengths": 2-4 short, evidence-grounded bullet sentences on what went well in this window.
+Produce "improvementAreas": 2-4 short, evidence-grounded bullet sentences on concrete areas to improve, drawing on flagged coaching opportunities and any low-sentiment/low-engagement notes.
+Produce "summary": a 1-2 sentence overall narrative tying it together.
+If there is too little evidence to say something concrete, say so plainly rather than inventing generic filler advice.`;
+
+    const contents = `
+=== USER PROFILE ===
+Role: ${profile.position} at ${profile.company}
+Personality: ${profile.personality}
+Communication: ${profile.communicationStyle}
+
+=== MEETING NOTES (LAST ${window} DAYS) ===
+${
+  notes && notes.length > 0
+    ? notes
+        .map(
+          (n: any) => `* [${n.date}] ${n.title} (Category: ${n.category}, Sentiment: ${n.sentimentScore}/10, Engagement: ${n.engagementLevel}/10)
+  Content: "${n.content}"
+  Flagged Coaching Opportunities: ${n.coachingOpportunities && n.coachingOpportunities.length > 0 ? n.coachingOpportunities.join('; ') : 'None flagged'}`
+        )
+        .join('\n\n')
+    : 'No meeting notes logged in this window.'
+}
+
+=== PERSONAL NOTES (LAST ${window} DAYS) ===
+${
+  personalNotes && personalNotes.length > 0
+    ? personalNotes.map((n: any) => `* [${n.date}] ${n.title}: ${n.content}`).join('\n')
+    : 'No personal notes logged in this window.'
+}
+
+Deliver your response strictly adhering to the JSON structure provided.
+`;
+
+    const response = await generateContentWithFallback(ai, {
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            strengths: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            improvementAreas: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            summary: {
+              type: Type.STRING,
+            },
+          },
+          required: ['strengths', 'improvementAreas', 'summary'],
+        },
+      },
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      return res.status(500).json({ error: 'No content was generated by Gemini.' });
+    }
+
+    const data = JSON.parse(responseText.trim());
+    return res.json({ status: 'success', data });
+
+  } catch (error: any) {
+    const errMsg = String(error?.message || error || '').toLowerCase();
+
+    const isServiceOrQuota =
+      errMsg.includes('503') ||
+      errMsg.includes('429') ||
+      errMsg.includes('quota') ||
+      errMsg.includes('limit') ||
+      errMsg.includes('demand') ||
+      errMsg.includes('exhausted') ||
+      errMsg.includes('unavailable') ||
+      errMsg.includes('overloaded');
+
+    if (isServiceOrQuota) {
+      console.warn('[API Coaching Tips] Gemini API limit/quota exhaustion handled gracefully. Falling back to local aggregation.');
+      return res.status(200).json({
+        status: 'error',
+        errorType: 'apiServiceUnavailable',
+        message: 'The Gemini model is temporarily unavailable or your free tier quota has been exceeded. Local summary activated.',
+      });
+    }
+
+    console.error('Gemini Coaching Tips Integration Error:', error);
+    return res.status(500).json({
+      status: 'error',
+      errorType: 'internalError',
+      message: 'An error occurred during coaching analysis: ' + errMsg,
     });
   }
 });

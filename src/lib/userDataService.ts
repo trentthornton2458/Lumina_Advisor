@@ -1,6 +1,6 @@
 import { db } from './firestore';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile } from '../types';
+import { Contact, MeetingNote, TaskReminder, MyselfProfile, Company, SOPDocument, SavedAdvisorReport, BehavioralProfile, SelfOrgPlacements, PersonalNote } from '../types';
 
 export interface UserSettings {
   darkMode: boolean;
@@ -19,6 +19,8 @@ export interface UserDataResult {
   advisorReports: SavedAdvisorReport[] | null;
   behavioralProfiles: BehavioralProfile[] | null;
   settings: UserSettings | null;
+  selfOrgPlacements: SelfOrgPlacements | null;
+  personalNotes: PersonalNote[] | null;
 }
 
 /**
@@ -36,6 +38,8 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
     advisorReports: doc(db, 'users', uid, 'data', 'advisorReports'),
     behavioralProfiles: doc(db, 'users', uid, 'data', 'behavioralProfiles'),
     settings: doc(db, 'users', uid, 'data', 'settings'),
+    selfOrgPlacements: doc(db, 'users', uid, 'data', 'selfOrgPlacements'),
+    personalNotes: doc(db, 'users', uid, 'data', 'personalNotes'),
   };
 
   try {
@@ -49,6 +53,8 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
       getDoc(docRefs.advisorReports),
       getDoc(docRefs.behavioralProfiles),
       getDoc(docRefs.settings),
+      getDoc(docRefs.selfOrgPlacements),
+      getDoc(docRefs.personalNotes),
     ]);
 
     const [
@@ -61,6 +67,8 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
       advisorReportsSnap,
       behavioralProfilesSnap,
       settingsSnap,
+      selfOrgPlacementsSnap,
+      personalNotesSnap,
     ] = snapshots;
 
     const hasAnyCloudData = snapshots.some(snap => snap.exists());
@@ -97,7 +105,10 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
           activeTab: localActiveTab || 'overview',
           tabOrder: localTabOrder ? JSON.parse(localTabOrder) : null,
           setupCompleted: localSetupCompleted === 'true',
-        }
+        },
+        // Brand-new collections with no legacy localStorage key to migrate from.
+        selfOrgPlacements: null,
+        personalNotes: null,
       };
 
       // If we have some local data, write it to Firestore immediately
@@ -139,6 +150,8 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
       advisorReports: advisorReportsSnap.exists() ? (advisorReportsSnap.data()?.items || []) as SavedAdvisorReport[] : [],
       behavioralProfiles: behavioralProfilesSnap.exists() ? (behavioralProfilesSnap.data()?.items || []) as BehavioralProfile[] : [],
       settings: settingsSnap.exists() ? settingsSnap.data() as UserSettings : null,
+      selfOrgPlacements: selfOrgPlacementsSnap.exists() ? selfOrgPlacementsSnap.data() as SelfOrgPlacements : {},
+      personalNotes: personalNotesSnap.exists() ? (personalNotesSnap.data()?.items || []) as PersonalNote[] : [],
     };
   } catch (error) {
     console.error('Error loading data from Firestore, falling back to localStorage:', error);
@@ -166,6 +179,8 @@ export async function loadUserData(uid: string): Promise<UserDataResult> {
       sops: localSops ? JSON.parse(localSops) : [],
       advisorReports: localAdvisorReports ? JSON.parse(localAdvisorReports) : [],
       behavioralProfiles: localBehavioralProfiles ? JSON.parse(localBehavioralProfiles) : [],
+      selfOrgPlacements: {},
+      personalNotes: [],
       settings: {
         darkMode: localDarkMode === 'true',
         activeTab: localActiveTab || 'overview',
@@ -275,9 +290,31 @@ export async function saveSettings(uid: string, settings: UserSettings) {
   }
 }
 
+export async function saveSelfOrgPlacements(uid: string, placements: SelfOrgPlacements) {
+  try {
+    const ref = doc(db, 'users', uid, 'data', 'selfOrgPlacements');
+    await setDoc(ref, JSON.parse(JSON.stringify(placements)));
+  } catch (error) {
+    console.error('Error saving self org placements to Firestore:', error);
+  }
+}
+
+export async function savePersonalNotes(uid: string, notes: PersonalNote[]) {
+  try {
+    const ref = doc(db, 'users', uid, 'data', 'personalNotes');
+    // Notes carry optional fields (tags, updatedAt) that get set to `undefined` rather than
+    // omitted - Firestore rejects `undefined` field values, so round-trip through JSON to strip
+    // them before writing.
+    await setDoc(ref, { items: JSON.parse(JSON.stringify(notes)) });
+  } catch (error) {
+    console.error('Error saving personal notes to Firestore:', error);
+  }
+}
+
 const ALL_DATA_DOC_KEYS = [
   'contacts', 'notes', 'tasks', 'profile', 'companies',
   'sops', 'advisorReports', 'behavioralProfiles', 'settings',
+  'selfOrgPlacements', 'personalNotes',
 ] as const;
 
 /**

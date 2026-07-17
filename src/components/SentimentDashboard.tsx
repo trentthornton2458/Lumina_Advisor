@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { MeetingNote, Contact, Company, NoteCategory } from '../types';
+import { MeetingNote, Contact, Company, NoteCategory, PersonalNote, MyselfProfile } from '../types';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, AreaChart, Area, Cell
@@ -10,11 +10,15 @@ import {
   GraduationCap, Star, AlertCircle, Building2
 } from 'lucide-react';
 import { noteInvolvesContact, getNoteAttendeeIds } from '../lib/noteUtils';
+import CoachingPanel from './CoachingPanel';
 
 interface SentimentDashboardProps {
   notes: MeetingNote[];
   contacts: Contact[];
   companies: Company[];
+  personalNotes: PersonalNote[];
+  profile: MyselfProfile;
+  onSelectNote?: (id: string | null) => void;
 }
 
 const DATE_RANGES = [
@@ -26,7 +30,8 @@ const DATE_RANGES = [
 
 const SENTIMENT_COLOR = (score: number) => (score >= 8 ? '#10b981' : score >= 5 ? '#94a3b8' : '#f43f5e');
 
-export default function SentimentDashboard({ notes, contacts, companies }: SentimentDashboardProps) {
+export default function SentimentDashboard({ notes, contacts, companies, personalNotes, profile, onSelectNote }: SentimentDashboardProps) {
+  const [sentimentSubTab, setSentimentSubTab] = useState<'overview' | 'coaching'>('overview');
   const [contactFilter, setContactFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | ''>('');
@@ -207,6 +212,37 @@ export default function SentimentDashboard({ notes, contacts, companies }: Senti
 
   return (
     <div id="sentiment-analysis-dashboard" className="space-y-6 pb-12">
+      {/* Sub-tab selector */}
+      <div className="flex border-b border-slate-100 pb-px">
+        <button
+          onClick={() => setSentimentSubTab('overview')}
+          className={`px-4 py-2 text-xs font-bold tracking-wider uppercase border-b-2 transition-all duration-200 ${
+            sentimentSubTab === 'overview'
+              ? 'border-blue-600 text-blue-600 font-bold'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Overview &amp; Trends
+        </button>
+        <button
+          onClick={() => setSentimentSubTab('coaching')}
+          className={`px-4 py-2 text-xs font-bold tracking-wider uppercase border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
+            sentimentSubTab === 'coaching'
+              ? 'border-blue-600 text-blue-600 font-bold'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <GraduationCap size={14} className="text-blue-500" />
+          Coaching
+        </button>
+      </div>
+
+      {sentimentSubTab === 'coaching' && (
+        <CoachingPanel notes={notes} personalNotes={personalNotes} contacts={contacts} profile={profile} onSelectNote={onSelectNote} />
+      )}
+
+      {sentimentSubTab === 'overview' && (
+      <>
       {/* Filter bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-center gap-3">
         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
@@ -313,7 +349,10 @@ export default function SentimentDashboard({ notes, contacts, companies }: Senti
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305">
+        <div 
+          onClick={() => setSentimentSubTab('coaching')}
+          className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305 cursor-pointer"
+        >
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Coaching Tips</span>
             <span className="text-3xl font-extrabold text-indigo-600 mt-2 inline-block tracking-tight">{coachingOpportunityCount}</span>
@@ -565,6 +604,8 @@ export default function SentimentDashboard({ notes, contacts, companies }: Senti
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

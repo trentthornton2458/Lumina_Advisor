@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { MyselfProfile, Contact, MeetingNote, TaskReminder } from '../types';
+import { MyselfProfile, Contact, MeetingNote, TaskReminder, PersonalNote } from '../types';
 import {
   User, Briefcase, Award, MessageSquare, Target, Info,
   Edit2, Check, X, ShieldAlert, Sparkles, MapPin, Users,
@@ -11,6 +11,7 @@ import { auth } from '../lib/firebase';
 import { deleteUser } from 'firebase/auth';
 import { deleteUserData } from '../lib/userDataService';
 import { LegalDocument } from './LegalDocument';
+import PersonalNotesManager from './PersonalNotesManager';
 
 interface MyselfProfileTabProps {
   profile: MyselfProfile;
@@ -20,16 +21,24 @@ interface MyselfProfileTabProps {
   notes?: MeetingNote[];
   tasks?: TaskReminder[];
   onImportData?: (imported: { contacts: Contact[]; notes: MeetingNote[]; tasks: TaskReminder[]; profile: MyselfProfile }) => void;
+  personalNotes?: PersonalNote[];
+  onAddPersonalNote?: (note: PersonalNote) => void;
+  onUpdatePersonalNote?: (note: PersonalNote) => void;
+  onDeletePersonalNote?: (id: string) => void;
 }
 
-export default function MyselfProfileTab({ 
-  profile, 
-  onUpdateProfile, 
+export default function MyselfProfileTab({
+  profile,
+  onUpdateProfile,
   activeSubTab = 'overview',
   contacts = [],
   notes = [],
   tasks = [],
-  onImportData
+  onImportData,
+  personalNotes = [],
+  onAddPersonalNote,
+  onUpdatePersonalNote,
+  onDeletePersonalNote
 }: MyselfProfileTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const { showToast } = useToast();
@@ -49,6 +58,7 @@ export default function MyselfProfileTab({
         'c_notes_contacts', 'c_notes_notes', 'c_notes_tasks', 'c_notes_profile',
         'c_notes_companies', 'c_notes_sops', 'c_notes_advisor_reports', 'c_notes_behavioral_profiles',
         'c_notes_active_tab', 'c_notes_tab_order', 'lumina_dark_mode', 'lumina_setup_completed',
+        'c_notes_self_org_placements', 'c_notes_personal_notes',
       ].forEach(key => localStorage.removeItem(key));
       await deleteUser(auth.currentUser);
       showToast('Your account and all associated data have been permanently deleted.', 'success');
@@ -621,6 +631,16 @@ export default function MyselfProfileTab({
                   </p>
                 </div>
               </div>
+            )}
+
+            {/* Personal Notes Panel */}
+            {activeSubTab === 'personalNotes' && (
+              <PersonalNotesManager
+                notes={personalNotes}
+                onAddNote={onAddPersonalNote || (() => {})}
+                onUpdateNote={onUpdatePersonalNote || (() => {})}
+                onDeleteNote={onDeletePersonalNote || (() => {})}
+              />
             )}
 
             {/* Data Portability and Backups Panel */}
