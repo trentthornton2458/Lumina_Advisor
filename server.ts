@@ -10,8 +10,8 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3005;
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
 // Lazy-loaded Gemini SDK client
 let genAIInstance: GoogleGenAI | null = null;
