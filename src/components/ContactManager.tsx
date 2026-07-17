@@ -9,6 +9,7 @@ import {
 import EmailDraftGenerator from './EmailDraftGenerator';
 import MeetingPrepChecklist from './MeetingPrepChecklist';
 import BehavioralIndexPanel from './BehavioralIndexPanel';
+import ProfileComparisonModal from './ProfileComparisonModal';
 import { noteInvolvesContact } from '../lib/noteUtils';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
@@ -30,6 +31,7 @@ interface ContactManagerProps {
   onSaveBehavioralProfile: (profile: BehavioralProfile) => void;
   selectedContactId?: string | null;
   onSelectContact?: (id: string | null) => void;
+  onLoadDemoAssets?: () => void;
 }
 
 export default function ContactManager({
@@ -47,12 +49,19 @@ export default function ContactManager({
   behavioralProfiles,
   onSaveBehavioralProfile,
   selectedContactId: selectedContactIdProp,
-  onSelectContact: onSelectContactProp
+  onSelectContact: onSelectContactProp,
+  onLoadDemoAssets
 }: ContactManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     contacts.length > 0 ? contacts[0].id : null
   );
+
+  useEffect(() => {
+    if (!selectedContactId && contacts.length > 0) {
+      setSelectedContactId(contacts[0].id);
+    }
+  }, [contacts, selectedContactId]);
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -69,6 +78,8 @@ export default function ContactManager({
       setIsEditing(false);
     }
   }, [selectedContactIdProp]);
+
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   // States for form field values
   const [name, setName] = useState('');
@@ -340,13 +351,22 @@ export default function ContactManager({
       <div className="lg:col-span-4 bg-white rounded-xl shadow-xs border border-stone-200 p-4 flex flex-col h-[calc(100vh-220px)] lg:h-[700px]">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-stone-900 tracking-tight">Contacts ({contacts.length})</h2>
-          <button
-            id="add-contact-btn"
-            onClick={startAdd}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 text-white text-xs font-medium rounded-lg hover:bg-stone-800 transition"
-          >
-            <Plus size={14} /> Add Contact
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              id="compare-profiles-btn"
+              onClick={() => setShowComparisonModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition"
+            >
+              <Sparkles size={13} /> Compare Profiles
+            </button>
+            <button
+              id="add-contact-btn"
+              onClick={startAdd}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 text-white text-xs font-medium rounded-lg hover:bg-stone-800 transition"
+            >
+              <Plus size={14} /> Add Contact
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -995,12 +1015,23 @@ export default function ContactManager({
             <UserPlus size={40} className="text-stone-300 mb-3" />
             <h3 className="font-medium text-stone-900 text-lg">No Contacts Registered</h3>
             <p className="text-stone-500 text-sm max-w-sm mt-1 mb-4">Add your professional contact relationships to analyze meeting engagement and leverage key insights.</p>
-            <button
-              onClick={startAdd}
-              className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
-            >
-              Add Your First Contact
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={startAdd}
+                className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
+              >
+                Add Your First Contact
+              </button>
+              {onLoadDemoAssets && (
+                <button
+                  id="load-demo-assets-btn"
+                  onClick={onLoadDemoAssets}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition"
+                >
+                  Load Demo Assets
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1027,6 +1058,18 @@ export default function ContactManager({
           tasks={tasks}
           profile={profile!}
           onClose={() => setShowPrepChecklist(false)}
+        />
+      )}
+    </AnimatePresence>
+
+    {/* Profile Comparison Modal */}
+    <AnimatePresence>
+      {showComparisonModal && (
+        <ProfileComparisonModal
+          contacts={contacts}
+          behavioralProfiles={behavioralProfiles}
+          initialContactId={selectedContactId}
+          onClose={() => setShowComparisonModal(false)}
         />
       )}
     </AnimatePresence>

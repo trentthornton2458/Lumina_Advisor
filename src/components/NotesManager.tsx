@@ -19,6 +19,7 @@ interface NotesManagerProps {
   selectedNoteId?: string | null;
   onSelectNote?: (id: string | null) => void;
   sops: SOPDocument[];
+  onLoadDemoAssets?: () => void;
 }
 
 export default function NotesManager({
@@ -30,8 +31,17 @@ export default function NotesManager({
   triggerAdd,
   selectedNoteId: propSelectedNoteId,
   onSelectNote,
-  sops
+  sops,
+  onLoadDemoAssets
 }: NotesManagerProps) {
+  const contactsMap = React.useMemo(() => {
+    const map = new Map<string, Contact>();
+    for (const c of contacts) {
+      map.set(c.id, c);
+    }
+    return map;
+  }, [contacts]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<NoteCategory | 'All'>('All');
   
@@ -102,7 +112,7 @@ export default function NotesManager({
     .filter(note => {
       const matchesPrivacy = noteViewFilter === 'private' ? note.isPrivate === true : !note.isPrivate;
       const attendeeNames = getNoteAttendeeIds(note)
-        .map(id => contacts.find(c => c.id === id)?.name || '')
+        .map(id => contactsMap.get(id)?.name || '')
         .join(' ');
       const textMatch = `${note.title} ${note.content} ${attendeeNames} ${note.keyPoints.join(' ')}`.toLowerCase();
       const matchesSearch = textMatch.includes(searchTerm.toLowerCase());
@@ -112,9 +122,9 @@ export default function NotesManager({
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const selectedNote = notes.find(n => n.id === selectedNoteId) || null;
-  const linkedContact = selectedNote ? contacts.find(c => c.id === selectedNote.contactId) : null;
+  const linkedContact = selectedNote && selectedNote.contactId ? contactsMap.get(selectedNote.contactId) || null : null;
   const otherAttendees = selectedNote
-    ? (selectedNote.attendeeIds || []).map(id => contacts.find(c => c.id === id)).filter((c): c is Contact => !!c)
+    ? (selectedNote.attendeeIds || []).map(id => contactsMap.get(id)).filter((c): c is Contact => !!c)
     : [];
 
   const handleAddKeyPoint = () => {
@@ -196,7 +206,7 @@ export default function NotesManager({
     setIsGeneratingInsights(true);
     try {
       const attendeeNames = [contactId, ...attendeeIds]
-        .map(id => contacts.find(c => c.id === id)?.name)
+        .map(id => contactsMap.get(id)?.name)
         .filter(Boolean);
 
       const response = await authedFetch('/api/note-insights', user, {
@@ -403,7 +413,7 @@ export default function NotesManager({
             </div>
           ) : (
             filteredNotes.map(n => {
-              const contact = contacts.find(c => c.id === n.contactId);
+              const contact = n.contactId ? contactsMap.get(n.contactId) : undefined;
               return (
                 <button
                   key={n.id}
@@ -535,7 +545,7 @@ export default function NotesManager({
                 {attendeeIds.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {attendeeIds.map(id => {
-                      const c = contacts.find(ct => ct.id === id);
+                      const c = contactsMap.get(id);
                       if (!c) return null;
                       return (
                         <span
@@ -1010,12 +1020,23 @@ export default function NotesManager({
             <NotebookTabs size={40} className="text-stone-300 mb-3" />
             <h3 className="font-medium text-stone-900 text-lg">No Meeting Logs Recorded</h3>
             <p className="text-stone-500 text-sm max-w-sm mt-1 mb-4">Log meeting contexts, phone conversations, client pitches or key personal reviews to start analyzing trends.</p>
-            <button
-              onClick={startAdd}
-              className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
-            >
-              Add Your First Note
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={startAdd}
+                className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
+              >
+                Add Your First Note
+              </button>
+              {onLoadDemoAssets && (
+                <button
+                  id="load-demo-assets-btn"
+                  onClick={onLoadDemoAssets}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition"
+                >
+                  Load Demo Assets
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
