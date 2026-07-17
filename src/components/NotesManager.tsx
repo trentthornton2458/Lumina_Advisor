@@ -18,6 +18,7 @@ interface NotesManagerProps {
   triggerAdd?: number;
   selectedNoteId?: string | null;
   onSelectNote?: (id: string | null) => void;
+  sops: SOPDocument[];
 }
 
 export default function NotesManager({
@@ -28,7 +29,8 @@ export default function NotesManager({
   onDeleteNote,
   triggerAdd,
   selectedNoteId: propSelectedNoteId,
-  onSelectNote
+  onSelectNote,
+  sops
 }: NotesManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<NoteCategory | 'All'>('All');
@@ -81,6 +83,8 @@ export default function NotesManager({
   const [coachingOpportunities, setCoachingOpportunities] = useState<string[]>([]);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insightsSimulated, setInsightsSimulated] = useState(false);
+  const [sopAlignmentScore, setSopAlignmentScore] = useState<number | undefined>(undefined);
+  const [sopDeviations, setSopDeviations] = useState<string[]>([]);
 
   // Filter notes view: 'standard' or 'private'
   const [noteViewFilter, setNoteViewFilter] = useState<'standard' | 'private'>('standard');
@@ -150,6 +154,8 @@ export default function NotesManager({
     setInsights(undefined);
     setCoachingOpportunities([]);
     setInsightsSimulated(false);
+    setSopAlignmentScore(undefined);
+    setSopDeviations([]);
     setIsAdding(true);
     setIsEditing(false);
   };
@@ -176,6 +182,8 @@ export default function NotesManager({
     setInsights(note.insights);
     setCoachingOpportunities(note.coachingOpportunities || []);
     setInsightsSimulated(false);
+    setSopAlignmentScore(note.sopAlignmentScore);
+    setSopDeviations(note.sopDeviations || []);
     setIsEditing(true);
     setIsAdding(false);
   };
@@ -221,13 +229,24 @@ export default function NotesManager({
     }
   };
 
-  const applyInsightsResult = (result: { keyPoints: string[]; insights: string; coachingOpportunities: string[]; sentimentScore: number; engagementLevel: number; isSimulated?: boolean }) => {
+  const applyInsightsResult = (result: { 
+    keyPoints: string[]; 
+    insights: string; 
+    coachingOpportunities: string[]; 
+    sentimentScore: number; 
+    engagementLevel: number; 
+    isSimulated?: boolean;
+    sopAlignmentScore?: number;
+    sopDeviations?: string[];
+  }) => {
     setKeyPointsList(result.keyPoints);
     setInsights(result.insights);
     setCoachingOpportunities(result.coachingOpportunities || []);
     setSentimentScore(result.sentimentScore);
     setEngagementLevel(result.engagementLevel);
     setInsightsSimulated(!!result.isSimulated);
+    setSopAlignmentScore(result.sopAlignmentScore);
+    setSopDeviations(result.sopDeviations || []);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -258,7 +277,9 @@ export default function NotesManager({
         keyPoints: finalKeyPoints,
         insights,
         coachingOpportunities: coachingOpportunities.length > 0 ? coachingOpportunities : undefined,
-        isPrivate
+        isPrivate,
+        sopAlignmentScore,
+        sopDeviations: sopDeviations.length > 0 ? sopDeviations : undefined
       };
       onAddNote(newNote);
       setSelectedNoteId(newNote.id);
@@ -278,7 +299,9 @@ export default function NotesManager({
         keyPoints: finalKeyPoints,
         insights: insights ?? existing?.insights,
         coachingOpportunities: coachingOpportunities.length > 0 ? coachingOpportunities : existing?.coachingOpportunities,
-        isPrivate
+        isPrivate,
+        sopAlignmentScore: sopAlignmentScore !== undefined ? sopAlignmentScore : existing?.sopAlignmentScore,
+        sopDeviations: sopDeviations.length > 0 ? sopDeviations : existing?.sopDeviations
       };
       onUpdateNote(updatedNote);
       setIsEditing(false);
@@ -709,6 +732,37 @@ export default function NotesManager({
                         </ul>
                       </div>
                     )}
+                    {sopAlignmentScore !== undefined && (
+                      <div className="mt-3 pt-3 border-t border-dashed border-stone-200">
+                        <div className="flex justify-between items-center mb-1">
+                          <h5 className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">SOP Compliance Score</h5>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                            sopAlignmentScore >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            sopAlignmentScore >= 50 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                            'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}>
+                            {sopAlignmentScore}% Alignment
+                          </span>
+                        </div>
+                        
+                        {sopDeviations && sopDeviations.length > 0 ? (
+                          <div className="mt-2 space-y-1">
+                            <span className="text-[9px] font-bold text-rose-600 uppercase tracking-wider block">Deviations & Compliance Flags</span>
+                            <ul className="space-y-1">
+                              {sopDeviations.map((dev, i) => (
+                                <li key={i} className="text-xs text-rose-900 bg-rose-50 border border-rose-150 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+                                  <span>{dev}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-emerald-605 font-bold italic mt-1">
+                            ✓ Discussion aligned with active SOP governance policies.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -905,6 +959,39 @@ export default function NotesManager({
                             <li key={i} className="text-xs text-blue-900 bg-blue-50/80 border border-blue-100/40 rounded-xl px-3.5 py-2 font-medium">{tip}</li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+                    {selectedNote.sopAlignmentScore !== undefined && (
+                      <div className="mt-4 pt-3.5 border-t border-indigo-100/40">
+                        <div className="flex justify-between items-center mb-2">
+                          <h5 className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest font-mono">
+                            SOP Alignment & Governance
+                          </h5>
+                          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                            selectedNote.sopAlignmentScore >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            selectedNote.sopAlignmentScore >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {selectedNote.sopAlignmentScore}% Compliance
+                          </span>
+                        </div>
+                        {selectedNote.sopDeviations && selectedNote.sopDeviations.length > 0 ? (
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-bold text-rose-700 uppercase tracking-wider block">Deviations Flags:</span>
+                            <ul className="space-y-1.5">
+                              {selectedNote.sopDeviations.map((dev, i) => (
+                                <li key={i} className="text-xs text-rose-900 bg-rose-50/70 border border-rose-100/40 rounded-xl px-3.5 py-2 font-medium flex items-start gap-1.5">
+                                  <AlertCircle size={13} className="text-rose-500 shrink-0 mt-0.5" />
+                                  <span>{dev}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-emerald-600 font-bold italic mt-1">
+                            ✓ Discussion perfectly aligned with active corporate SOP governance.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

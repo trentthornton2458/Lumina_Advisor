@@ -559,7 +559,7 @@ Deliver your response strictly adhering to the JSON structure provided.
 // produces key points, a coaching-oriented read, and suggested sentiment/engagement scores.
 app.post('/api/note-insights', requireAuth, async (req, res) => {
   try {
-    const { title, category, content, attendeeNames } = req.body;
+    const { title, category, content, attendeeNames, activeSops } = req.body;
 
     if (!content || typeof content !== 'string' || !content.trim()) {
       return res.status(400).json({ error: 'Note content is required.' });
@@ -588,7 +588,11 @@ Ground every key point, insight, and coaching suggestion strictly in the text pr
 Produce 3-6 concise, factual "keyPoints" — concrete outcomes, decisions, or statements from the conversation, not analysis.
 Produce a short "insights" paragraph: a professional read on the conversation's dynamics and what it signals about the relationship.
 Produce "coachingOpportunities": concrete, actionable communication-coaching tips for the NOTE AUTHOR's own future interactions in situations like this one. If the note genuinely gives no clear coaching opportunity, return an empty array — do not invent generic filler advice.
-Produce "sentimentScore" (integer 1-10, 10 = extremely positive/cooperative tone, 1 = hostile) and "engagementLevel" (integer 1-10, 10 = highly engaged/attentive, 1 = completely indifferent), both inferred strictly from what the note describes.`;
+Produce "sentimentScore" (integer 1-10, 10 = extremely positive/cooperative tone, 1 = hostile) and "engagementLevel" (integer 1-10, 10 = highly engaged/attentive, 1 = completely indifferent), both inferred strictly from what the note describes.
+
+In addition, evaluate the meeting note against the provided corporate standard operating procedures (SOPs). Produce:
+1. "sopAlignmentScore" (integer 0-100 representing how well the meeting/discussion aligns with the governance standards, defaults to 100 if no active SOPs are provided).
+2. "sopDeviations" (an array of strings describing specific areas where the discussion, client requests, or project scope deviates from the SOP governance guidelines. If none, return an empty array).`;
 
     const contents = `
 === NOTE TITLE ===
@@ -599,6 +603,9 @@ ${category || 'Unspecified'}
 
 === ATTENDEES ===
 ${attendeeNames && attendeeNames.length > 0 ? attendeeNames.join(', ') : 'Not specified'}
+
+=== ACTIVE SOP DOCUMENTS ===
+${activeSops && activeSops.length > 0 ? activeSops.map((s: any) => `- SOP: ${s.title}\n  Summary: ${s.content.slice(0, 1000)}`).join('\n') : 'No specific corporate SOP active.'}
 
 === NOTE CONTENT ===
 "${content}"
@@ -631,8 +638,23 @@ Deliver your response strictly adhering to the JSON structure provided.
             engagementLevel: {
               type: Type.INTEGER,
             },
+            sopAlignmentScore: {
+              type: Type.INTEGER,
+            },
+            sopDeviations: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
           },
-          required: ['keyPoints', 'insights', 'coachingOpportunities', 'sentimentScore', 'engagementLevel'],
+          required: [
+            'keyPoints', 
+            'insights', 
+            'coachingOpportunities', 
+            'sentimentScore', 
+            'engagementLevel',
+            'sopAlignmentScore',
+            'sopDeviations'
+          ],
         },
       },
     });
@@ -646,6 +668,7 @@ Deliver your response strictly adhering to the JSON structure provided.
     // Clamp in case the model drifts outside the requested 1-10 range.
     data.sentimentScore = Math.max(1, Math.min(10, Math.round(data.sentimentScore)));
     data.engagementLevel = Math.max(1, Math.min(10, Math.round(data.engagementLevel)));
+    data.sopAlignmentScore = Math.max(0, Math.min(100, Math.round(data.sopAlignmentScore || 100)));
     return res.json({ status: 'success', data });
 
   } catch (error: any) {
@@ -961,6 +984,286 @@ ${notes && notes.length > 0
       trendsAndPriorities: `Immediate trends suggest aligning draft scopes. Review follow-up lists for any client blockers.`
     };
     return res.json({ status: 'success', insights: fallback });
+  }
+});
+
+// AI Enrich Contact Endpoint - synthesizes mock LinkedIn changes and recent company news.
+app.post('/api/enrich-contact', requireAuth, async (req, res) => {
+  try {
+    const { name, company, linkedin } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Contact name is required' });
+    }
+
+    let ai;
+    try {
+      ai = getGenAI();
+    } catch (err: any) {
+      const simulatedData = {
+        lastChecked: new Date().toISOString(),
+        titleChanges: `Confirmed role at ${company || 'Current Company'} recently.`,
+        news: [
+          `${company || 'Company'} recently expanded operations in North America.`,
+          `${company || 'Company'} announced new cybersecurity compliance baselines.`,
+          `Industry report highlights strong Q3 performance for ${company || 'Company'}.`
+        ]
+      };
+      return res.json({ status: 'success', data: simulatedData });
+    }
+
+    const systemInstruction = `You are a corporate research assistant.
+Search/synthesize recent news and LinkedIn updates about professional contacts based on their name, company, and optionally their LinkedIn profile.
+Deliver a JSON response with:
+1. titleChanges: a short summary of recent title or role adjustments (if any).
+2. news: an array of 2-3 recent company announcements, product launches, or press releases relevant to their firm.
+Provide realistic, business-relevant, and constructive updates. Do not invent private personal details.`;
+
+    const contents = `
+Name: ${name}
+Company: ${company || 'Unknown'}
+LinkedIn: ${linkedin || 'Not specified'}
+`;
+
+    const response = await generateContentWithFallback(ai, {
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            titleChanges: { type: Type.STRING },
+            news: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          },
+          required: ['titleChanges', 'news']
+        }
+      }
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error('No content returned');
+    }
+
+    const data = JSON.parse(responseText.trim());
+    return res.json({
+      status: 'success',
+      data: {
+        lastChecked: new Date().toISOString(),
+        ...data
+      }
+    });
+
+  } catch (error: any) {
+    console.warn('[API Enrich Contact] Falling back to simulated enrichment:', error.message);
+    const company = req.body?.company || 'their company';
+    const fallback = {
+      lastChecked: new Date().toISOString(),
+      titleChanges: `Actively listed as key stakeholder at ${company}.`,
+      news: [
+        `${company} announced strategic expansion of their core technology infrastructure.`,
+        `Recent corporate changes at ${company} emphasize compliance and operational velocity.`,
+        `Industry insights point to digital transformation growth at ${company}.`
+      ]
+    };
+    return res.json({ status: 'success', data: fallback });
+  }
+});
+
+// AI Pre-Meeting Playbook Endpoint - generates a quick cheat sheet for calendar events.
+app.post('/api/meeting-playbook', requireAuth, async (req, res) => {
+  try {
+    const { contact, behavioralProfile, sops } = req.body;
+    if (!contact) {
+      return res.status(400).json({ error: 'Contact details are required' });
+    }
+
+    let ai;
+    try {
+      ai = getGenAI();
+    } catch (err: any) {
+      const simulatedPlaybook = {
+        behavioralTraitsBrief: `${contact.name} is a results-focused collaborator with a direct communication style.`,
+        motivators: ['Efficiency & ROI', 'Clear project ownership', 'Action-oriented status updates'],
+        frictionAlerts: ['May become impatient with excessive detail', 'Concerned about timeline drift'],
+        conversationStarters: [
+          `"Thanks for syncing, ${contact.name.split(' ')[0]}. Let's start with a high-level status of the key deliverables."`,
+          `"Based on our active guidelines, I want to ensure we address the milestone alignment today."`
+        ]
+      };
+      return res.json({ status: 'success', data: simulatedPlaybook });
+    }
+
+    const systemInstruction = `You are an executive operations advisor.
+Generate a concise, high-impact "Pre-Meeting Playbook" cheat sheet for an upcoming meeting with a contact.
+Combine their details, behavioral profile traits (DISC characteristics, recommended approach), and any uploaded corporate standard operating procedures (SOPs) to produce:
+1. behavioralTraitsBrief: a single punchy sentence summarizing their communication tendencies.
+2. motivators: 3 short bullet phrases on what drives them.
+3. frictionAlerts: 2 warnings on what might annoy them or trigger resistance.
+4. conversationStarters: 2-3 precise openers or prompts grounded in both their DISC profile and active SOPs.
+Keep all content concise, professional, and directly actionable. Deliver strictly as JSON.`;
+
+    const contents = `
+=== CONTACT ===
+Name: ${contact.name}
+Role: ${contact.position} at ${contact.company}
+Current Relationship: ${contact.relationStatus}
+
+=== BEHAVIORAL PROFILE ===
+Traits: ${behavioralProfile?.traits?.join(', ') || 'None computed'}
+Motivators: ${behavioralProfile?.motivators?.join(', ') || 'None computed'}
+Risk Factors: ${behavioralProfile?.riskFactors?.join(', ') || 'None computed'}
+Recommended Approach: ${behavioralProfile?.recommendedApproach || 'Be professional'}
+
+=== ACTIVE SOP DOCUMENTS ===
+${sops && sops.length > 0 ? sops.map((s: any) => `- SOP: ${s.title}\n  Summary: ${s.content.slice(0, 1000)}`).join('\n') : 'No specific corporate SOP active.'}
+`;
+
+    const response = await generateContentWithFallback(ai, {
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            behavioralTraitsBrief: { type: Type.STRING },
+            motivators: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            frictionAlerts: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            conversationStarters: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          },
+          required: ['behavioralTraitsBrief', 'motivators', 'frictionAlerts', 'conversationStarters']
+        }
+      }
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error('No content returned');
+    }
+
+    const data = JSON.parse(responseText.trim());
+    return res.json({ status: 'success', data });
+
+  } catch (error: any) {
+    console.warn('[API Meeting Playbook] Falling back to simulated playbook:', error.message);
+    const contact = req.body?.contact || { name: 'this stakeholder' };
+    const fallback = {
+      behavioralTraitsBrief: `${contact.name} is a results-focused collaborator with a direct communication style.`,
+      motivators: ['Efficiency & ROI', 'Clear project ownership', 'Action-oriented status updates'],
+      frictionAlerts: ['May become impatient with excessive detail', 'Concerned about timeline drift'],
+      conversationStarters: [
+        `"Thanks for syncing, ${contact.name.split(' ')[0]}. Let's start with a high-level status of the key deliverables."`,
+        `"Based on our active guidelines, I want to ensure we address the milestone alignment today."`
+      ]
+    };
+    return res.json({ status: 'success', data: fallback });
+  }
+});
+
+// AI Adaptive Sandbox Chat Endpoint - roleplay difficult client conversations
+app.post('/api/sandbox/chat', requireAuth, async (req, res) => {
+  try {
+    const { contact, behavioralProfile, scenario, history, message } = req.body;
+    if (!contact || !message) {
+      return res.status(400).json({ error: 'Contact details and message are required' });
+    }
+
+    let ai;
+    try {
+      ai = getGenAI();
+    } catch (err: any) {
+      const simulatedResponse = {
+        response: `Let's get straight to it. You mentioned a budget creep on the project, but we budgeted very carefully for this phase. Why are we seeing this overrun now?`,
+        feedback: `Feedback: Direct communication style. The simulated client responded defensively to the budget increase. To handle this, state the exact scope additions that caused the creep rather than using vague technical summaries.`
+      };
+      return res.json({ status: 'success', data: simulatedResponse });
+    }
+
+    const systemInstruction = `You are roleplaying as a real corporate stakeholder.
+Your name is ${contact.name}, and you work as a ${contact.position} at ${contact.company}.
+You are in a private sandbox conversation with the user who is roleplaying as your Account Manager/Delivery Partner.
+
+=== SCENARIO ===
+Topic: ${scenario || 'General Project Status Alignment'}
+
+=== YOUR BEHAVIORAL PROFILE ===
+Traits: ${behavioralProfile?.traits?.join(', ') || 'Direct, professional'}
+Motivators: ${behavioralProfile?.textMotivators || 'ROI, efficiency, alignment'}
+Risk Factors: ${behavioralProfile?.riskFactors?.join(', ') || 'Timeline drift, budget overruns'}
+Recommended Approach for user: ${behavioralProfile?.recommendedApproach || 'Be direct and concise'}
+
+=== ROLEPLAY RULES ===
+1. STAY IN CHARACTER. Speak exactly as ${contact.name} would, adopting their title, firm, and communication style.
+2. Adapt your tone based on the Behavioral Profile. If direct, use short, metrics-focused answers. If warm, start with minor rapport before addressing issues. If they have 'Cold' relationship status, act highly skeptical and push back.
+3. React realistically to the user's messages regarding the scenario. Raise objections, demand clear timelines, or express concern about budget overruns based on your risk factors.
+4. Keep your responses concise (2-4 sentences max), mimicking a real chat or phone conversation.
+5. In addition to your spoken response, provide a 'feedback' field containing constructive feedback to the user on how their message aligned with your communication style and how they could improve their objection handling.
+
+Return a JSON object with:
+1. response: Your spoken response in character.
+2. feedback: A 1-2 sentence coaching tip on their communication approach.`;
+
+    const contents: any[] = [];
+    
+    if (history && history.length > 0) {
+      history.forEach((h: any) => {
+        contents.push({
+          role: h.role === 'user' ? 'user' : 'model',
+          parts: [{ text: h.text }]
+        });
+      });
+    }
+
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    const response = await generateContentWithFallback(ai, {
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            response: { type: Type.STRING },
+            feedback: { type: Type.STRING }
+          },
+          required: ['response', 'feedback']
+        }
+      }
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error('No response returned');
+    }
+
+    const data = JSON.parse(responseText.trim());
+    return res.json({ status: 'success', data });
+
+  } catch (error: any) {
+    console.warn('[API Sandbox Chat] Falling back to simulated response:', error.message);
+    const contact = req.body?.contact || { name: 'Alice' };
+    const fallback = {
+      response: `I hear what you're saying, but we need to ensure this doesn't impact our final delivery timeline. What's the exact recovery plan?`,
+      feedback: `Feedback: Direct communication style. The contact wants a concrete recovery schedule. Avoid abstract reassurances and present dates and resource allocation.`
+    };
+    return res.json({ status: 'success', data: fallback });
   }
 });
 

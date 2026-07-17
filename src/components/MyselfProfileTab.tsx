@@ -12,6 +12,7 @@ import { deleteUser } from 'firebase/auth';
 import { deleteUserData } from '../lib/userDataService';
 import { LegalDocument } from './LegalDocument';
 import PersonalNotesManager from './PersonalNotesManager';
+import PrivacySettings from './PrivacySettings';
 
 interface MyselfProfileTabProps {
   profile: MyselfProfile;
@@ -25,6 +26,7 @@ interface MyselfProfileTabProps {
   onAddPersonalNote?: (note: PersonalNote) => void;
   onUpdatePersonalNote?: (note: PersonalNote) => void;
   onDeletePersonalNote?: (id: string) => void;
+  onWipeAllData?: () => void;
 }
 
 export default function MyselfProfileTab({
@@ -38,7 +40,8 @@ export default function MyselfProfileTab({
   personalNotes = [],
   onAddPersonalNote,
   onUpdatePersonalNote,
-  onDeletePersonalNote
+  onDeletePersonalNote,
+  onWipeAllData
 }: MyselfProfileTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const { showToast } = useToast();
@@ -804,6 +807,18 @@ export default function MyselfProfileTab({
                   <LegalDocument doc={legalDoc} />
                 </div>
               </div>
+            )}
+
+            {/* Privacy Settings Panel */}
+            {activeSubTab === 'privacy' && (
+              <PrivacySettings
+                contacts={contacts}
+                notes={notes}
+                tasks={tasks}
+                profile={profile}
+                onUpdateProfile={onUpdateProfile}
+                onWipeAllData={onWipeAllData || (() => {})}
+              />
             )}
           </div>
         </div>

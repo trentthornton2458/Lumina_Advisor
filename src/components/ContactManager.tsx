@@ -4,12 +4,15 @@ import { Contact, MeetingNote, MyselfProfile, RelationshipStatus, TaskReminder, 
 import {
   Building2, Mail, Phone, Linkedin, Search, Plus, Trash2, Edit2,
   Tag, NotebookTabs, X, Check, UserPlus, Sparkles, ClipboardList,
-  CheckCircle2, Circle, AlertCircle, FileText, Bookmark
+  CheckCircle2, Circle, AlertCircle, FileText, Bookmark, Loader2
 } from 'lucide-react';
 import EmailDraftGenerator from './EmailDraftGenerator';
 import MeetingPrepChecklist from './MeetingPrepChecklist';
 import BehavioralIndexPanel from './BehavioralIndexPanel';
 import { noteInvolvesContact } from '../lib/noteUtils';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from './Toast';
+import { enrichContact } from '../lib/enrichContactService';
 
 interface ContactManagerProps {
   contacts: Contact[];
@@ -25,6 +28,8 @@ interface ContactManagerProps {
   triggerAdd?: number;
   behavioralProfiles: BehavioralProfile[];
   onSaveBehavioralProfile: (profile: BehavioralProfile) => void;
+  selectedContactId?: string | null;
+  onSelectContact?: (id: string | null) => void;
 }
 
 export default function ContactManager({
@@ -40,7 +45,9 @@ export default function ContactManager({
   onToggleTask,
   triggerAdd,
   behavioralProfiles,
-  onSaveBehavioralProfile
+  onSaveBehavioralProfile,
+  selectedContactId: selectedContactIdProp,
+  onSelectContact: onSelectContactProp
 }: ContactManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
@@ -51,6 +58,17 @@ export default function ContactManager({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showEmailDraft, setShowEmailDraft] = useState(false);
   const [showPrepChecklist, setShowPrepChecklist] = useState(false);
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const [isEnriching, setIsEnriching] = useState(false);
+
+  useEffect(() => {
+    if (selectedContactIdProp !== undefined && selectedContactIdProp !== null) {
+      setSelectedContactId(selectedContactIdProp);
+      setIsAdding(false);
+      setIsEditing(false);
+    }
+  }, [selectedContactIdProp]);
 
   // States for form field values
   const [name, setName] = useState('');
@@ -226,6 +244,7 @@ export default function ContactManager({
       };
       onAddContact(newContact);
       setSelectedContactId(newContact.id);
+      onSelectContactProp && onSelectContactProp(newContact.id);
       setIsAdding(false);
     } else if (isEditing && selectedContactId) {
       const updatedContact: Contact = {
@@ -241,17 +260,47 @@ export default function ContactManager({
         status,
         linkedin: linkedin.trim() || undefined,
         notes: notesField.trim() || undefined,
-        tags: parsedTags
+        tags: parsedTags,
+        enrichedData: selectedContact?.enrichedData // Preserve existing enrichedData on edit
       };
       onUpdateContact(updatedContact);
       setIsEditing(false);
     }
   };
 
+  const handleEnrich = async () => {
+    if (!selectedContact) return;
+    setIsEnriching(true);
+    try {
+      const data = await enrichContact(
+        user,
+        selectedContact.name,
+        selectedContact.company,
+        selectedContact.linkedin
+      );
+      if (data) {
+        onUpdateContact({
+          ...selectedContact,
+          enrichedData: data
+        });
+        showToast('Contact profile enriched successfully', 'success');
+      } else {
+        showToast('Failed to enrich contact profile', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('An error occurred during enrichment', 'error');
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
   const executeDelete = (id: string) => {
     onDeleteContact(id);
     const remainingContacts = contacts.filter(c => c.id !== id);
-    setSelectedContactId(remainingContacts.length > 0 ? remainingContacts[0].id : null);
+    const nextSelected = remainingContacts.length > 0 ? remainingContacts[0].id : null;
+    setSelectedContactId(nextSelected);
+    onSelectContactProp && onSelectContactProp(nextSelected);
     setDeleteConfirmId(null);
   };
 
@@ -356,6 +405,7 @@ export default function ContactManager({
                 id={`contact-item-${c.id}`}
                 onClick={() => {
                   setSelectedContactId(c.id);
+                  onSelectContactProp && onSelectContactProp(c.id);
                   setIsAdding(false);
                   setIsEditing(false);
                 }}
@@ -645,7 +695,15 @@ export default function ContactManager({
                     {selectedContact.position}, <span className="text-stone-750">{selectedContact.company}</span>
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleEnrich}
+                    disabled={isEnriching}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isEnriching ? <Loader2 size={13} className="animate-spin text-blue-500" /> : <Sparkles size={13} className="text-blue-500" />}
+                    Enrich Profile
+                  </button>
                   <button
                     id="edit-contact-btn"
                     onClick={() => startEdit(selectedContact)}
@@ -759,6 +817,34 @@ export default function ContactManager({
                 </div>
               </div>
             </div>
+
+            {/* AI Enriched Data Panel */}
+            {selectedContact.enrichedData && (
+              <div className="bg-white rounded-xl shadow-xs border border-stone-200 p-6 bg-gradient-to-br from-blue-50/20 to-indigo-50/10">
+                <h4 className="text-xs font-bold text-blue-700 uppercase tracking-widest font-mono mb-3 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-blue-500" /> AI Background Enrichment
+                </h4>
+                <div className="space-y-4">
+                  {selectedContact.enrichedData.titleChanges && (
+                    <div>
+                      <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-mono">Title & Role Changes</p>
+                      <p className="text-xs text-stone-700 mt-1 font-medium bg-white/50 p-2.5 rounded-lg border border-stone-150">{selectedContact.enrichedData.titleChanges}</p>
+                    </div>
+                  )}
+                  {selectedContact.enrichedData.news && selectedContact.enrichedData.news.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-mono">Recent Company News</p>
+                      <ul className="list-disc pl-4 space-y-1.5 mt-1">
+                        {selectedContact.enrichedData.news.map((item, idx) => (
+                          <li key={idx} className="text-xs text-stone-700 font-medium leading-relaxed">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <p className="text-[9px] text-stone-400 italic">Last enriched on: {new Date(selectedContact.enrichedData.lastChecked).toLocaleString()}</p>
+                </div>
+              </div>
+            )}
 
             {/* Relationship & Behavioral Index */}
             <BehavioralIndexPanel

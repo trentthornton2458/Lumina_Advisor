@@ -47,6 +47,7 @@ import CompanyManager from './components/CompanyManager';
 import SOPManager from './components/SOPManager';
 import GuidedSetup from './components/GuidedSetup';
 import { useToast } from './components/Toast';
+import AdaptiveSandbox from './components/AdaptiveSandbox';
 
 const TAB_CONFIG: Record<string, { name: string, icon: React.ReactNode }> = {
   'overview': { name: 'Strategic Overview', icon: <LayoutDashboard size={16} /> },
@@ -56,12 +57,13 @@ const TAB_CONFIG: Record<string, { name: string, icon: React.ReactNode }> = {
   'tasks': { name: 'Tasks', icon: <CalendarCheck size={16} /> },
   'calendar': { name: 'Calendar', icon: <Calendar size={16} /> },
   'sentiment': { name: 'Sentiment & Trends', icon: <TrendingUp size={16} /> },
+  'sandbox': { name: 'Adaptive Sandbox', icon: <Sparkles size={16} className="text-blue-500 fill-blue-500/10 animate-pulse" /> },
   'ai': { name: 'AI Advisor', icon: <Sparkles size={16} className="text-amber-400 fill-amber-400/20 animate-pulse" /> },
   'advisorReports': { name: 'Advisor Reports', icon: <Archive size={16} /> },
   'sops': { name: 'SOP & Documentation', icon: <FileText size={16} /> },
 };
 
-const INITIAL_TAB_ORDER = ['overview', 'companies', 'contacts', 'notes', 'tasks', 'calendar', 'sentiment', 'ai', 'advisorReports', 'sops'];
+const INITIAL_TAB_ORDER = ['overview', 'companies', 'contacts', 'notes', 'tasks', 'calendar', 'sentiment', 'sandbox', 'ai', 'advisorReports', 'sops'];
 
 function SortableNavItem({ id, tab, isActive, onClick, badge }: { id: string; tab: any; isActive: boolean; onClick: () => void; badge?: { count: number; isOverdue: boolean } }) {
   const {
@@ -124,6 +126,14 @@ export default function App() {
   const handleSelectNote = (id: string | null) => {
     setSelectedNoteId(id);
     setActiveTab('notes');
+  };
+
+  // Selected contact state for cross-tab navigation
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+
+  const handleSelectContact = (id: string | null) => {
+    setSelectedContactId(id);
+    setActiveTab('contacts');
   };
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -592,6 +602,39 @@ export default function App() {
     }
   };
 
+  const handleWipeAllData = () => {
+    setContacts([]);
+    setNotes([]);
+    setTasks([]);
+    setCompanies([]);
+    setSops([]);
+    setAdvisorReports([]);
+    setBehavioralProfiles([]);
+    setSelfOrgPlacements({});
+    setPersonalNotes([]);
+    setProfile({
+      name: '',
+      position: '',
+      company: '',
+      personality: '',
+      coreStrengths: '',
+      communicationStyle: '',
+      careerGoals: '',
+      extraDetails: '',
+      profilePicture: ''
+    });
+    
+    [
+      'c_notes_contacts', 'c_notes_notes', 'c_notes_tasks', 'c_notes_profile',
+      'c_notes_companies', 'c_notes_sops', 'c_notes_advisor_reports', 'c_notes_behavioral_profiles',
+      'c_notes_active_tab', 'c_notes_tab_order', 'lumina_dark_mode', 'lumina_setup_completed',
+      'c_notes_self_org_placements', 'c_notes_personal_notes', 'c_notes_myself_profile', 'c_notes_meeting_notes', 'c_notes_tasks_reminders'
+    ].forEach(key => localStorage.removeItem(key));
+
+    setActiveTab('overview');
+    setShowSetup(true);
+  };
+
   if (dataLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300 font-sans">
@@ -729,6 +772,7 @@ export default function App() {
                     { id: 'goals', name: 'Goals' },
                     { id: 'personalNotes', name: 'Personal Notes' },
                     { id: 'data', name: 'Data & Backups' },
+                    { id: 'privacy', name: 'Enterprise Privacy' },
                     { id: 'legal', name: 'Legal & Privacy' },
                   ].map(sub => (
                     <button
@@ -892,6 +936,7 @@ export default function App() {
                   profile={profile}
                   setActiveTab={setActiveTab}
                   onToggleTask={handleToggleTask}
+                  onSelectContact={handleSelectContact}
                 />
               )}
 
@@ -910,6 +955,8 @@ export default function App() {
                   triggerAdd={triggerAddContact}
                   behavioralProfiles={behavioralProfiles}
                   onSaveBehavioralProfile={handleSaveBehavioralProfile}
+                  selectedContactId={selectedContactId}
+                  onSelectContact={setSelectedContactId}
                 />
               )}
 
@@ -967,6 +1014,8 @@ export default function App() {
                   tasks={tasks}
                   contacts={contacts}
                   onAddTask={handleAddTask}
+                  sops={sops}
+                  behavioralProfiles={behavioralProfiles}
                 />
               )}
 
@@ -978,6 +1027,13 @@ export default function App() {
                   personalNotes={personalNotes}
                   profile={profile}
                   onSelectNote={handleSelectNote}
+                />
+              )}
+
+              {activeTab === 'sandbox' && (
+                <AdaptiveSandbox
+                  contacts={contacts}
+                  behavioralProfiles={behavioralProfiles}
                 />
               )}
 
@@ -994,6 +1050,7 @@ export default function App() {
                   onAddPersonalNote={handleAddPersonalNote}
                   onUpdatePersonalNote={handleUpdatePersonalNote}
                   onDeletePersonalNote={handleDeletePersonalNote}
+                  onWipeAllData={handleWipeAllData}
                 />
               )}
 

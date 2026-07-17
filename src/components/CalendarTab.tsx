@@ -5,7 +5,7 @@ import {
   Clock, MapPin, AlertCircle, CalendarPlus, Info, 
   CheckSquare, Check, X, ShieldAlert, Sparkles, LogOut, Loader2
 } from 'lucide-react';
-import { TaskReminder, Contact } from '../types';
+import { TaskReminder, Contact, SOPDocument, BehavioralProfile } from '../types';
 import { 
   connectGoogleCalendar, 
   fetchCalendarEvents, 
@@ -15,11 +15,14 @@ import {
   setGoogleAccessToken 
 } from '../lib/googleCalendar';
 import { useAuth } from '../context/AuthContext';
+import PreMeetingPlaybook from './PreMeetingPlaybook';
 
 interface CalendarTabProps {
   tasks: TaskReminder[];
   contacts: Contact[];
   onAddTask: (task: TaskReminder) => void;
+  sops: SOPDocument[];
+  behavioralProfiles: BehavioralProfile[];
 }
 
 const MONTHS = [
@@ -58,7 +61,13 @@ interface PendingEventPayload {
   addToLocal: boolean;
 }
 
-export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabProps) {
+export default function CalendarTab({ 
+  tasks, 
+  contacts, 
+  onAddTask,
+  sops,
+  behavioralProfiles
+}: CalendarTabProps) {
   const { user } = useAuth();
   
   // Google & Outlook OAuth state caching
@@ -66,6 +75,10 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
   const [outlookToken, setOutlookToken] = useState<string | null>(() => sessionStorage.getItem('lumina_outlook_cal_token'));
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  
+  // Playbook states
+  const [selectedPlaybookContact, setSelectedPlaybookContact] = useState<Contact | null>(null);
+  const [isPlaybookOpen, setIsPlaybookOpen] = useState(false);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [outlookEvents, setOutlookEvents] = useState<CalendarEvent[]>([]);
   
@@ -668,37 +681,66 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
               ) : (
                 <>
                   {/* Google Calendar Events Section */}
-                  {activeDayItems.google.map((evt) => (
-                    <div key={evt.id} className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/20 hover:bg-indigo-50/40 transition-all flex gap-3">
-                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl max-h-10 flex items-center justify-center select-none">
-                        <CalendarIcon size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider font-mono">Google Event</span>
+                  {activeDayItems.google.map((evt) => {
+                    const matchContact = contacts.find(c => {
+                      const nameLower = c.name.toLowerCase();
+                      const companyLower = c.company.toLowerCase();
+                      const summaryLower = (evt.summary || '').toLowerCase();
+                      const descLower = (evt.description || '').toLowerCase();
+                      return (
+                        summaryLower.includes(nameLower) ||
+                        descLower.includes(nameLower) ||
+                        (companyLower && (summaryLower.includes(companyLower) || descLower.includes(companyLower)))
+                      );
+                    });
+
+                    return (
+                      <div key={evt.id} className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/20 hover:bg-indigo-50/40 transition-all flex gap-3">
+                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl max-h-10 flex items-center justify-center select-none">
+                          <CalendarIcon size={16} />
                         </div>
-                        <h4 className="text-xs font-bold text-slate-800 mt-1 truncate">{evt.summary || 'Untitled Event'}</h4>
-                        
-                        <div className="flex flex-col gap-1 mt-2 text-[11px] text-slate-500 font-medium">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <Clock size={12} className="text-indigo-400" />
-                            <span>{formatEventTime(evt)}</span>
+                            <span className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider font-mono">Google Event</span>
                           </div>
-                          {evt.location && (
+                          <h4 className="text-xs font-bold text-slate-800 mt-1 truncate">{evt.summary || 'Untitled Event'}</h4>
+                          
+                          <div className="flex flex-col gap-1 mt-2 text-[11px] text-slate-500 font-medium">
                             <div className="flex items-center gap-1.5">
-                              <MapPin size={12} className="text-slate-400" />
-                              <span className="truncate">{evt.location}</span>
+                              <Clock size={12} className="text-indigo-400" />
+                              <span>{formatEventTime(evt)}</span>
+                            </div>
+                            {evt.location && (
+                              <div className="flex items-center gap-1.5">
+                                <MapPin size={12} className="text-slate-400" />
+                                <span className="truncate">{evt.location}</span>
+                              </div>
+                            )}
+                          </div>
+                          {evt.description && (
+                            <p className="text-[11px] text-slate-400 leading-relaxed border-t border-indigo-100/30 pt-2 mt-2 font-serif line-clamp-2">
+                              {evt.description}
+                            </p>
+                          )}
+                          
+                          {matchContact && (
+                            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-indigo-100/30">
+                              <span className="text-[10px] text-slate-450 font-bold font-mono uppercase tracking-wider">Matched: {matchContact.name}</span>
+                              <button
+                                onClick={() => {
+                                  setSelectedPlaybookContact(matchContact);
+                                  setIsPlaybookOpen(true);
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-[10px] font-bold transition-all shadow-xs"
+                              >
+                                <Sparkles size={10} /> Generate Playbook
+                              </button>
                             </div>
                           )}
                         </div>
-                        {evt.description && (
-                          <p className="text-[11px] text-slate-400 leading-relaxed border-t border-indigo-100/30 pt-2 mt-2 font-serif line-clamp-2">
-                            {evt.description}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {/* Local CRM Pending Reminder Items Section */}
                   {activeDayItems.local.map((task) => (
@@ -1023,6 +1065,20 @@ export default function CalendarTab({ tasks, contacts, onAddTask }: CalendarTabP
           </div>
         )}
       </AnimatePresence>
+
+      {/* Pre-Meeting Playbook Drawer Widget */}
+      {selectedPlaybookContact && (
+        <PreMeetingPlaybook
+          contact={selectedPlaybookContact}
+          behavioralProfile={behavioralProfiles.find(p => p.contactId === selectedPlaybookContact.id)}
+          sops={sops}
+          isOpen={isPlaybookOpen}
+          onClose={() => {
+            setIsPlaybookOpen(false);
+            setSelectedPlaybookContact(null);
+          }}
+        />
+      )}
 
     </div>
   );

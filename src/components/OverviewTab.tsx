@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Contact, MeetingNote, TaskReminder, MyselfProfile } from '../types';
 import { 
   Calendar, Award, Target, Sparkles, CheckCircle2, AlertCircle,
@@ -16,6 +16,7 @@ interface OverviewTabProps {
   profile: MyselfProfile;
   setActiveTab: (tab: string) => void;
   onToggleTask: (id: string) => void;
+  onSelectContact?: (id: string) => void;
 }
 
 interface OverviewInsights {
@@ -30,7 +31,8 @@ export default function OverviewTab({
   tasks, 
   profile, 
   setActiveTab,
-  onToggleTask
+  onToggleTask,
+  onSelectContact
 }: OverviewTabProps) {
   const { user } = useAuth();
   const [insights, setInsights] = useState<OverviewInsights | null>(null);
@@ -45,6 +47,70 @@ export default function OverviewTab({
   const pendingTasks = tasks
     .filter(t => !t.completed)
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+  // Top 3 Stakeholders at Risk calculation
+  const atRiskStakeholders = useMemo(() => {
+    const scoredContacts = contacts.map(c => {
+      const cNotes = notes.filter(n => n.contactId === c.id || n.attendeeIds?.includes(c.id));
+      
+      const avgSentiment = cNotes.length > 0 
+        ? cNotes.reduce((acc, curr) => acc + curr.sentimentScore, 0) / cNotes.length 
+        : 7;
+      
+      let daysSinceLastSync = 30;
+      if (cNotes.length > 0) {
+        const sortedNotes = [...cNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const lastNote = sortedNotes[0];
+        daysSinceLastSync = Math.max(0, Math.floor((new Date().getTime() - new Date(lastNote.date).getTime()) / (1000 * 60 * 60 * 24)));
+      }
+
+      let riskScore = 0;
+      let primaryReason = '';
+
+      if (c.relationStatus === 'Cold') {
+        riskScore += 45;
+        primaryReason = 'Cold relationship status';
+      }
+      if (c.status === 'Bad') {
+        riskScore += 45;
+        primaryReason = 'Status rated Bad (At Risk)';
+      }
+      
+      const sentimentDrop = 6.5 - avgSentiment;
+      if (sentimentDrop > 0) {
+        riskScore += sentimentDrop * 15;
+        if (!primaryReason) {
+          primaryReason = `Low average sentiment (${avgSentiment.toFixed(1)}/10)`;
+        }
+      }
+
+      if (daysSinceLastSync > 14) {
+        const silencePenalty = Math.min(35, (daysSinceLastSync - 14) * 2.5);
+        riskScore += silencePenalty;
+        if (silencePenalty > 15 && (!primaryReason || riskScore - silencePenalty < 25)) {
+          primaryReason = `Extended silence: ${daysSinceLastSync} days since last sync`;
+        }
+      }
+
+      if (cNotes.length === 0 && c.relationStatus !== 'Cold' && c.status !== 'Bad') {
+        riskScore = 5;
+        primaryReason = 'No meeting notes logged yet';
+      }
+
+      return {
+        contact: c,
+        riskScore: Math.round(riskScore),
+        primaryReason,
+        daysSinceLastSync,
+        avgSentiment
+      };
+    });
+
+    return scoredContacts
+      .filter(sc => sc.riskScore >= 15)
+      .sort((a, b) => b.riskScore - a.riskScore)
+      .slice(0, 3);
+  }, [contacts, notes]);
 
   const generateFallbackInsights = useCallback((): OverviewInsights => {
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -169,6 +235,63 @@ export default function OverviewTab({
           </span>
         </div>
       </div>
+
+      {/* Dynamic Morning Executive Brief: Stakeholders at Risk */}
+      {atRiskStakeholders.length > 0 && (
+        <div className="bg-white rounded-2xl border border-rose-200 p-6 shadow-sm bg-gradient-to-br from-rose-50/20 to-white animate-fade-in-up">
+          <div className="flex justify-between items-center border-b border-rose-100 pb-3 mb-4">
+            <h3 className="text-sm font-bold text-rose-700 uppercase tracking-widest flex items-center gap-2">
+              <AlertCircle size={16} className="text-rose-600 animate-pulse" />
+              Morning Executive Brief: Stakeholders at Risk
+            </h3>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded">
+              High Priority Overview
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {atRiskStakeholders.map(({ contact, riskScore, primaryReason, avgSentiment, daysSinceLastSync }) => (
+              <div 
+                key={contact.id} 
+                className="bg-white rounded-xl border border-slate-200 hover:border-rose-250 p-4 transition-all hover:shadow-md flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm group-hover:text-rose-700 transition-colors">{contact.name}</h4>
+                      <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{contact.position} • {contact.company}</p>
+                    </div>
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-50 border border-rose-100 text-rose-700">
+                      Risk: {riskScore}%
+                    </span>
+                  </div>
+                  
+                  <div className="mt-3 bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 text-xs text-slate-650 font-medium leading-normal flex items-start gap-1.5">
+                    <Shield size={12} className="text-rose-500 shrink-0 mt-0.5" />
+                    <span>{primaryReason}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <div className="flex gap-2.5 text-[10px] text-slate-450 font-mono font-bold">
+                    <span>Sent: {avgSentiment.toFixed(1)}/10</span>
+                    <span>•</span>
+                    <span>Silent: {daysSinceLastSync}d</span>
+                  </div>
+                  {onSelectContact && (
+                    <button 
+                      onClick={() => onSelectContact(contact.id)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5 hover:underline"
+                    >
+                      Acknowledge & Sync <ArrowRight size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Left Development Hub & Right Task Schedule */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

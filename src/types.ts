@@ -39,6 +39,11 @@ export interface Contact {
   notes?: string;
   tags: string[];
   supervisorId?: string; // Hierarchical relationship link (supervisor)
+  enrichedData?: {
+    lastChecked: string;
+    titleChanges?: string;
+    news?: string[];
+  };
 }
 
 export interface MeetingNote {
@@ -56,6 +61,8 @@ export interface MeetingNote {
   insights?: string; // AI generated summary/advice if triggered
   coachingOpportunities?: string[]; // AI generated coaching tips for the note author, if applicable
   isPrivate?: boolean;
+  sopAlignmentScore?: number; // SOP alignment percentage (0-100)
+  sopDeviations?: string[]; // Areas where the note contents deviate from active SOPs
 }
 
 export interface TaskReminder {
