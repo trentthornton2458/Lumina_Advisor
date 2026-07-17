@@ -30,25 +30,42 @@ const DATE_RANGES = [
 
 const SENTIMENT_COLOR = (score: number) => (score >= 8 ? '#10b981' : score >= 5 ? '#94a3b8' : '#f43f5e');
 
+const formatDateString = (dateStr: string) => {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function SentimentDashboard({ notes, contacts, companies, personalNotes, profile, onSelectNote }: SentimentDashboardProps) {
   const [sentimentSubTab, setSentimentSubTab] = useState<'overview' | 'coaching'>('overview');
   const [contactFilter, setContactFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | ''>('');
   const [dateRange, setDateRange] = useState<typeof DATE_RANGES[number]['key']>('all');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const availableCategories = useMemo(
     () => Array.from(new Set(notes.map(n => n.category))).sort(),
     [notes]
   );
 
-  const hasActiveFilters = !!(contactFilter || companyFilter || categoryFilter || dateRange !== 'all');
+  const hasActiveFilters = !!(contactFilter || companyFilter || categoryFilter || dateRange !== 'all' || selectedDate);
 
   const clearFilters = () => {
     setContactFilter('');
     setCompanyFilter('');
     setCategoryFilter('');
     setDateRange('all');
+    setSelectedDate(null);
   };
 
   // 1. Apply filters
@@ -162,14 +179,21 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
     return { improved, declined };
   }, [filteredNotes, contacts]);
 
+  const displayedNotes = useMemo(() => {
+    if (selectedDate) {
+      return filteredNotes.filter(n => n.date === selectedDate);
+    }
+    return filteredNotes;
+  }, [filteredNotes, selectedDate]);
+
   // 8. Spotlight notes — best and worst logged interaction in the current filter
   const spotlightNotes = useMemo(() => {
-    if (filteredNotes.length === 0) return { best: null, worst: null };
-    const sorted = [...filteredNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (displayedNotes.length === 0) return { best: null, worst: null };
+    const sorted = [...displayedNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const best = [...sorted].sort((a, b) => b.sentimentScore - a.sentimentScore)[0];
     const worst = [...sorted].sort((a, b) => a.sentimentScore - b.sentimentScore)[0];
     return { best, worst: worst.id === best.id ? null : worst };
-  }, [filteredNotes]);
+  }, [displayedNotes]);
 
   // Custom Tooltip component for Recharts
   const CustomTooltip = ({ active, payload }: any) => {
@@ -288,12 +312,19 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
           ))}
         </div>
         {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-          >
-            <X size={12} /> Clear filters
-          </button>
+          <div className="ml-auto flex items-center gap-3">
+            {selectedDate && (
+              <span className="text-xs text-blue-600 font-semibold bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg">
+                Showing notes from {formatDateString(selectedDate)}
+              </span>
+            )}
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+            >
+              <X size={12} /> Clear filters
+            </button>
+          </div>
         )}
       </div>
 
@@ -373,7 +404,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
             <p className="text-xs text-slate-400 mt-1">Dual timeline tracking relationship sentiment alignment versus audience attention indexes.</p>
           </div>
 
-          <div className="flex-1 w-full text-xs font-mono">
+          <div className="h-[300px] w-full text-xs font-mono">
             {chartData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-slate-400 italic text-center px-6">
                 {hasActiveFilters ? 'No logged meetings match the current filters.' : 'Insufficient timelines recorded to render metric analytics.'}
@@ -383,6 +414,15 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
                 <AreaChart
                   data={chartData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(data: any) => {
+                    console.log("AreaChart onClick:", data ? { activeLabel: data.activeLabel, isTooltipActive: data.isTooltipActive, activeTooltipIndex: data.activeTooltipIndex } : null);
+                    if (data && data.isTooltipActive && data.activeLabel) {
+                      setSelectedDate(String(data.activeLabel));
+                    } else {
+                      setSelectedDate(null);
+                    }
+                  }}
                 >
                   <defs>
                     <linearGradient id="colorSentiment" x1="0" y1="0" x2="0" y2="1">
@@ -513,7 +553,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
             <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Sentiment by Meeting Category</h3>
             <p className="text-xs text-slate-400 mt-0.5">Where conversations tend to run warm versus where friction concentrates.</p>
           </div>
-          <div className="flex-1 w-full">
+          <div className="h-[250px] w-full">
             {categoryBreakdown.length === 0 ? (
               <div className="h-full flex items-center justify-center text-slate-400 italic text-xs">No data to break down yet.</div>
             ) : (
@@ -605,6 +645,44 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
           )}
         </div>
       )}
+
+      {/* Filtered Notes List */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-7">
+        <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase mb-4">
+          {selectedDate ? `Notes from ${formatDateString(selectedDate)}` : 'Filtered Notes'}
+        </h3>
+        {displayedNotes.length === 0 ? (
+          <p className="text-xs text-slate-400 italic">No notes found for the current selection.</p>
+        ) : (
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+            {displayedNotes.map(n => (
+              <div
+                key={n.id}
+                onClick={() => onSelectNote && onSelectNote(n.id)}
+                className={`p-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-100/60 rounded-2xl transition flex justify-between items-start gap-4 ${
+                  onSelectNote ? 'cursor-pointer hover:shadow-xs' : ''
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-slate-900 text-sm truncate">{n.title}</h4>
+                  <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-2 flex-wrap">
+                    <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-semibold">{n.date}</span>
+                    <span>&middot;</span>
+                    <span className="font-semibold text-slate-600">{noteAttendeeLabel(n)}</span>
+                    <span>&middot;</span>
+                    <span className="font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{n.category}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed">{noteExcerpt(n)}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1">Sentiment: {n.sentimentScore}/10</span>
+                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1">Engagement: {n.engagementLevel}/10</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       </>
       )}
     </div>
