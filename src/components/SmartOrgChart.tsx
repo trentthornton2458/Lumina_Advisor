@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Contact, MyselfProfile } from '../types';
 import {
   GitCommit, User, ChevronDown, ChevronRight, RefreshCw,
@@ -31,12 +31,73 @@ export default function SmartOrgChart({
 }: SmartOrgChartProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const [savedExpandedNodes, setSavedExpandedNodes] = useState<Record<string, boolean>>({});
+
+  const isSearchingRef = useRef(false);
+  const expandedNodesRef = useRef(expandedNodes);
+  expandedNodesRef.current = expandedNodes;
+  const savedExpandedNodesRef = useRef(savedExpandedNodes);
+  savedExpandedNodesRef.current = savedExpandedNodes;
 
   // Get contacts belonging to this company, plus a synthetic "Me" node if the
   // user has chosen to include themselves in this company's chart.
   const companyContacts = useMemo(() => {
     return buildCompanyOrgChartContacts(contacts, companyId, companyName, selfProfile, selfPlacement);
   }, [contacts, companyId, companyName, selfProfile, selfPlacement]);
+
+  // Auto-expand paths to matches when search is active
+  useEffect(() => {
+    const active = searchTerm.trim() !== '';
+
+    if (active) {
+      const query = searchTerm.toLowerCase();
+      // Find all matching contacts
+      const matchingContacts = companyContacts.filter(c =>
+        c.name.toLowerCase().includes(query) || c.position.toLowerCase().includes(query)
+      );
+
+      // Compute ancestor IDs of all matching contacts
+      const ancestorIds = new Set<string>();
+      matchingContacts.forEach(match => {
+        let current = companyContacts.find(c => c.id === match.supervisorId);
+        const visited = new Set<string>();
+        while (current) {
+          if (visited.has(current.id)) break;
+          visited.add(current.id);
+          ancestorIds.add(current.id);
+          current = companyContacts.find(c => c.id === current.supervisorId);
+        }
+      });
+
+      const ancestorsMap: Record<string, boolean> = {};
+      ancestorIds.forEach(id => {
+        ancestorsMap[id] = true;
+      });
+
+      if (!isSearchingRef.current) {
+        // Transition from inactive to active search: save pre-search expanded states
+        isSearchingRef.current = true;
+        const currentExpanded = expandedNodesRef.current;
+        setSavedExpandedNodes(currentExpanded);
+        setExpandedNodes({
+          ...currentExpanded,
+          ...ancestorsMap
+        });
+      } else {
+        // Update expanded states using original saved expanded states as base
+        setExpandedNodes({
+          ...savedExpandedNodesRef.current,
+          ...ancestorsMap
+        });
+      }
+    } else {
+      // Transition from active to inactive search: restore saved expanded states
+      if (isSearchingRef.current) {
+        isSearchingRef.current = false;
+        setExpandedNodes(savedExpandedNodesRef.current);
+      }
+    }
+  }, [searchTerm, companyContacts]);
 
   // Check if contact B is a descendant of contact A
   // This is used to prevent circular relationships when setting supervisorId
@@ -76,7 +137,12 @@ export default function SmartOrgChart({
   }, [companyContacts]);
 
   const toggleExpand = (id: string) => {
-    setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
+    const isCurrentlyExpanded = expandedNodes[id] !== false;
+    const nextVal = !isCurrentlyExpanded;
+    setExpandedNodes(prev => ({ ...prev, [id]: nextVal }));
+    if (searchTerm.trim() !== '') {
+      setSavedExpandedNodes(prev => ({ ...prev, [id]: nextVal }));
+    }
   };
 
   const handleSupervisorChange = (contactId: string, supervisorId: string) => {
