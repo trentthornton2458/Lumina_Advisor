@@ -268,7 +268,7 @@ export default function CoachingPanel({ notes, personalNotes, contacts, profile,
       </div>
 
       {/* AI Summary */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-5">
+      <div className="glass-card bg-gradient-to-br from-indigo-50/20 to-blue-50/10 dark:from-slate-900/40 dark:to-slate-950/20 rounded-2xl p-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles size={14} className="text-blue-500" />
@@ -277,7 +277,7 @@ export default function CoachingPanel({ notes, personalNotes, contacts, profile,
           <button
             onClick={handleGenerateSummary}
             disabled={isGenerating}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xs font-semibold rounded-xl transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xs font-semibold rounded-xl transition btn-glow-blue"
           >
             {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
             {aiSummary ? 'Regenerate' : 'Generate AI Summary'}

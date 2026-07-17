@@ -93,7 +93,7 @@ function SortableNavItem({ id, tab, isActive, onClick, badge }: { id: string; ta
         {...listeners}
         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all text-left ${
           isActive
-            ? 'bg-slate-800 text-white font-bold border border-slate-700/50 shadow-xs'
+            ? 'bg-slate-800 text-white font-bold border border-slate-700/50 shadow-xs active-glow-tab'
             : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
         }`}
       >
@@ -765,7 +765,7 @@ export default function App() {
               }}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all text-left ${
                 activeTab === 'myself'
-                  ? 'bg-slate-800 text-white font-bold border border-slate-700/50 shadow-xs'
+                  ? 'bg-slate-800 text-white font-bold border border-slate-700/50 shadow-xs active-glow-tab'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
@@ -863,7 +863,7 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
 
         {/* Header bar matching Lumina style */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-50 shadow-sm relative">
+        <header id="application-header" className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-50 shadow-sm relative transition-all duration-300">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}

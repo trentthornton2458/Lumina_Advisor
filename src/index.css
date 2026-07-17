@@ -142,26 +142,6 @@ body {
   border-bottom-color: #1e293b !important;
 }
 
-/* Animated Glow Effects */
-@keyframes glow-border-pulse {
-  0% {
-    border-color: rgba(59, 130, 246, 0.3);
-    box-shadow: 0 0 4px rgba(59, 130, 246, 0.08);
-  }
-  50% {
-    border-color: rgba(99, 102, 241, 0.7);
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.28);
-  }
-  100% {
-    border-color: rgba(59, 130, 246, 0.3);
-    box-shadow: 0 0 4px rgba(59, 130, 246, 0.08);
-  }
-}
-
-.animate-glow-border {
-  animation: glow-border-pulse 4s infinite ease-in-out;
-}
-
 @keyframes glow-text-pulse {
   0% {
     text-shadow: 0 0 2px rgba(59, 130, 246, 0.15);
@@ -177,4 +157,58 @@ body {
 
 .animate-glow-text {
   animation: glow-text-pulse 3s infinite ease-in-out;
+}
+
+/* Premium Styling Utilities */
+@keyframes glow-border-pulse {
+  0% {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 4px rgba(99, 102, 241, 0.1);
+  }
+  50% {
+    border-color: rgba(168, 85, 247, 0.75);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+  }
+  100% {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 4px rgba(99, 102, 241, 0.1);
+  }
+}
+
+.animate-glow-border {
+  animation: glow-border-pulse 4s infinite ease-in-out !important;
+}
+
+.glass-card {
+  background-color: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass-card {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  border-color: rgba(30, 41, 59, 0.1) !important;
+}
+
+.btn-glow-blue {
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+.btn-glow-blue:hover {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+}
+
+.active-glow-tab {
+  border-left: 3px solid #3b82f6 !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3) !important;
+}
+
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
