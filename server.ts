@@ -380,7 +380,7 @@ Deliver your response strictly adhering to the JSON structure provided.
     return res.status(500).json({
       status: 'error',
       errorType: 'internalError',
-      message: 'An error occurred during AI analysis: ' + errMsg,
+      message: 'An error occurred during AI analysis. Please try again later.',
     });
   }
 });
@@ -532,7 +532,7 @@ Deliver your response strictly adhering to the JSON structure provided.
     return res.status(500).json({
       status: 'error',
       errorType: 'internalError',
-      message: 'An error occurred during behavioral analysis: ' + errMsg,
+      message: 'An error occurred during behavioral analysis. Please try again later.',
     });
   }
 });
@@ -656,7 +656,7 @@ Deliver your response strictly adhering to the JSON structure provided.
     return res.status(500).json({
       status: 'error',
       errorType: 'internalError',
-      message: 'An error occurred during note analysis: ' + errMsg,
+      message: 'An error occurred during note analysis. Please try again later.',
     });
   }
 });
