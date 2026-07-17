@@ -25,6 +25,7 @@ interface ContactManagerProps {
   triggerAdd?: number;
   behavioralProfiles: BehavioralProfile[];
   onSaveBehavioralProfile: (profile: BehavioralProfile) => void;
+  onLoadDemoAssets?: () => void;
 }
 
 export default function ContactManager({
@@ -40,12 +41,19 @@ export default function ContactManager({
   onToggleTask,
   triggerAdd,
   behavioralProfiles,
-  onSaveBehavioralProfile
+  onSaveBehavioralProfile,
+  onLoadDemoAssets
 }: ContactManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     contacts.length > 0 ? contacts[0].id : null
   );
+
+  useEffect(() => {
+    if (!selectedContactId && contacts.length > 0) {
+      setSelectedContactId(contacts[0].id);
+    }
+  }, [contacts, selectedContactId]);
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -909,12 +917,23 @@ export default function ContactManager({
             <UserPlus size={40} className="text-stone-300 mb-3" />
             <h3 className="font-medium text-stone-900 text-lg">No Contacts Registered</h3>
             <p className="text-stone-500 text-sm max-w-sm mt-1 mb-4">Add your professional contact relationships to analyze meeting engagement and leverage key insights.</p>
-            <button
-              onClick={startAdd}
-              className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
-            >
-              Add Your First Contact
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={startAdd}
+                className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition"
+              >
+                Add Your First Contact
+              </button>
+              {onLoadDemoAssets && (
+                <button
+                  id="load-demo-assets-btn"
+                  onClick={onLoadDemoAssets}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition"
+                >
+                  Load Demo Assets
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -21,6 +21,7 @@ interface CompanyManagerProps {
   onIncludeSelfInCompany: (companyId: string) => void;
   onRemoveSelfFromCompany: (companyId: string) => void;
   onUpdateSelfSupervisor: (companyId: string, supervisorId: string | undefined) => void;
+  onLoadDemoAssets?: () => void;
 }
 
 export default function CompanyManager({
@@ -35,7 +36,8 @@ export default function CompanyManager({
   selfOrgPlacements,
   onIncludeSelfInCompany,
   onRemoveSelfFromCompany,
-  onUpdateSelfSupervisor
+  onUpdateSelfSupervisor,
+  onLoadDemoAssets
 }: CompanyManagerProps) {
   const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -530,12 +532,23 @@ export default function CompanyManager({
               <Building2 size={40} className="text-slate-300 mb-3" />
               <h3 className="font-bold text-slate-700">No Company Selected</h3>
               <p className="text-slate-400 text-xs max-w-xs mt-1 mb-6">Select a company from the left column database or register a new client company context.</p>
-              <button
-                onClick={startAdd}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm"
-              >
-                <Plus size={14} /> Register New Company
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={startAdd}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Plus size={14} /> Register New Company
+                </button>
+                {onLoadDemoAssets && (
+                  <button
+                    id="load-demo-assets-btn"
+                    onClick={onLoadDemoAssets}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm"
+                  >
+                    Load Demo Assets
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </AnimatePresence>
