@@ -32,6 +32,14 @@ export default function NotesManager({
   onSelectNote,
   onLoadDemoAssets
 }: NotesManagerProps) {
+  const contactsMap = React.useMemo(() => {
+    const map = new Map<string, Contact>();
+    for (const c of contacts) {
+      map.set(c.id, c);
+    }
+    return map;
+  }, [contacts]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<NoteCategory | 'All'>('All');
   
@@ -100,7 +108,7 @@ export default function NotesManager({
     .filter(note => {
       const matchesPrivacy = noteViewFilter === 'private' ? note.isPrivate === true : !note.isPrivate;
       const attendeeNames = getNoteAttendeeIds(note)
-        .map(id => contacts.find(c => c.id === id)?.name || '')
+        .map(id => contactsMap.get(id)?.name || '')
         .join(' ');
       const textMatch = `${note.title} ${note.content} ${attendeeNames} ${note.keyPoints.join(' ')}`.toLowerCase();
       const matchesSearch = textMatch.includes(searchTerm.toLowerCase());
@@ -110,9 +118,9 @@ export default function NotesManager({
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const selectedNote = notes.find(n => n.id === selectedNoteId) || null;
-  const linkedContact = selectedNote ? contacts.find(c => c.id === selectedNote.contactId) : null;
+  const linkedContact = selectedNote && selectedNote.contactId ? contactsMap.get(selectedNote.contactId) || null : null;
   const otherAttendees = selectedNote
-    ? (selectedNote.attendeeIds || []).map(id => contacts.find(c => c.id === id)).filter((c): c is Contact => !!c)
+    ? (selectedNote.attendeeIds || []).map(id => contactsMap.get(id)).filter((c): c is Contact => !!c)
     : [];
 
   const handleAddKeyPoint = () => {
@@ -190,7 +198,7 @@ export default function NotesManager({
     setIsGeneratingInsights(true);
     try {
       const attendeeNames = [contactId, ...attendeeIds]
-        .map(id => contacts.find(c => c.id === id)?.name)
+        .map(id => contactsMap.get(id)?.name)
         .filter(Boolean);
 
       const response = await authedFetch('/api/note-insights', user, {
@@ -382,7 +390,7 @@ export default function NotesManager({
             </div>
           ) : (
             filteredNotes.map(n => {
-              const contact = contacts.find(c => c.id === n.contactId);
+              const contact = n.contactId ? contactsMap.get(n.contactId) : undefined;
               return (
                 <button
                   key={n.id}
@@ -514,7 +522,7 @@ export default function NotesManager({
                 {attendeeIds.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {attendeeIds.map(id => {
-                      const c = contacts.find(ct => ct.id === id);
+                      const c = contactsMap.get(id);
                       if (!c) return null;
                       return (
                         <span
