@@ -343,7 +343,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
 
       {/* Intro Metrics Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover-lift">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Average Sentiment</span>
             <span className="text-3xl font-extrabold text-slate-950 mt-2 inline-block tracking-tight">
@@ -356,7 +356,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover-lift">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stakeholder Focus</span>
             <span className="text-3xl font-extrabold text-slate-950 mt-2 inline-block tracking-tight">
@@ -369,7 +369,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover-lift">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Network Health Index</span>
             <span className="text-3xl font-extrabold text-emerald-600 mt-2 inline-block tracking-tight">{healthIndexPercent}%</span>
@@ -380,7 +380,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover-lift">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">System Database</span>
             <span className="text-3xl font-extrabold text-slate-950 mt-2 inline-block tracking-tight">
@@ -395,7 +395,7 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
 
         <div 
           onClick={() => setSentimentSubTab('coaching')}
-          className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between hover:shadow-md transition duration-305 cursor-pointer"
+          className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 p-6 flex items-center justify-between cursor-pointer hover-lift animate-glow-border"
         >
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Coaching Tips</span>

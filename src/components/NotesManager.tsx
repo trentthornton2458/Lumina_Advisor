@@ -400,10 +400,10 @@ export default function NotesManager({
                     setIsAdding(false);
                     setIsEditing(false);
                   }}
-                  className={`w-full text-left p-3 rounded-xl transition border text-sm flex flex-col gap-1.5 ${
+                  className={`w-full text-left p-3 rounded-xl transition-all duration-300 transform border text-sm flex flex-col gap-1.5 ${
                     selectedNoteId === n.id && !isAdding
-                      ? 'bg-stone-100/90 border-stone-300'
-                      : 'border-stone-100 hover:bg-stone-50/80 bg-stone-50/30'
+                      ? 'bg-stone-100/90 border-stone-300 scale-[1.02] shadow-xs hover:scale-[1.02]'
+                      : 'border-stone-100 hover:bg-stone-50/80 bg-stone-50/30 hover:scale-[1.01]'
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2 w-full">
@@ -894,7 +894,7 @@ export default function NotesManager({
 
               {/* Inline AI insights summary if present */}
               {selectedNote.insights ? (
-                <div id="ai-insight-panel" className="bg-gradient-to-br from-indigo-50/40 to-blue-50/20 rounded-2xl p-5 border border-indigo-100/40 flex items-start gap-4 mt-4 shadow-sm">
+                <div id="ai-insight-panel" className="bg-gradient-to-br from-indigo-50/40 to-blue-50/20 rounded-2xl p-5 border border-indigo-100/40 flex items-start gap-4 mt-4 shadow-sm animate-glow-border">
                   <div className="p-2.5 bg-slate-950 rounded-xl text-white shrink-0 shadow-md">
                     <Sparkles size={16} className="text-amber-400 fill-amber-400/20 animate-pulse" />
                   </div>
