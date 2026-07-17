@@ -38,6 +38,7 @@ export interface Contact {
   linkedin?: string;
   notes?: string;
   tags: string[];
+  supervisorId?: string; // Hierarchical relationship link (supervisor)
 }
 
 export interface MeetingNote {

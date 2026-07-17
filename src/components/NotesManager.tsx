@@ -705,65 +705,65 @@ export default function NotesManager({
           /* Details Pane */
           <div id="note-details-view" className="flex flex-col flex-1 gap-6 overflow-y-auto">
             {/* Main content view */}
-            <div className="bg-white rounded-xl shadow-xs border border-stone-200 p-6 flex-1 flex flex-col">
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 p-7 flex-1 flex flex-col">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span className="text-xs px-2 py-0.5 bg-stone-100 border border-stone-200 text-stone-700 rounded-md font-semibold font-mono tracking-wide">
+                  <div className="flex flex-wrap items-center gap-2 mb-2.5">
+                    <span className="text-xs px-2.5 py-1 bg-slate-50 border border-slate-200/60 text-slate-700 rounded-lg font-bold font-mono tracking-wide">
                       {selectedNote.category}
                     </span>
                     {selectedNote.isPrivate && (
-                      <span className="text-[10px] px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 font-mono">
+                      <span className="text-[10px] px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold uppercase tracking-wider flex items-center gap-1 font-mono">
                         <Lock size={10} /> Private Note
                       </span>
                     )}
-                    <span className="text-xs text-stone-400 flex items-center gap-1">
+                    <span className="text-xs text-slate-400 flex items-center gap-1 font-medium">
                       <Calendar size={13} /> {selectedNote.date}
                     </span>
                   </div>
-                  <h2 className="text-xl font-semibold text-stone-900 leading-snug">{selectedNote.title}</h2>
+                  <h2 className="text-xl font-bold text-slate-900 leading-snug tracking-tight">{selectedNote.title}</h2>
                   
                   {linkedContact && (
-                    <div id="linked-contact-box" className="mt-2.5 flex flex-wrap items-center gap-2 px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-800 text-xs rounded-lg font-medium">
-                      <User size={13} className="text-stone-500 shrink-0" />
+                    <div id="linked-contact-box" className="mt-3.5 flex flex-wrap items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-100 text-slate-800 text-xs rounded-xl font-medium">
+                      <User size={14} className="text-slate-500 shrink-0" />
                       Collaborator:
-                      <span className="text-stone-950 font-semibold">{linkedContact.name}</span>
-                      <span className="text-stone-450 italic">({linkedContact.position} at {linkedContact.company})</span>
+                      <span className="text-slate-950 font-bold">{linkedContact.name}</span>
+                      <span className="text-slate-450 font-normal">({linkedContact.position} at {linkedContact.company})</span>
                     </div>
                   )}
                   {otherAttendees.length > 0 && (
-                    <div id="other-attendees-box" className="mt-2 flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-800 text-xs rounded-lg font-medium">
-                      <Users size={13} className="text-stone-500 shrink-0" />
+                    <div id="other-attendees-box" className="mt-2 flex flex-wrap items-center gap-1.5 px-3.5 py-2 bg-slate-50 border border-slate-100 text-slate-800 text-xs rounded-xl font-medium">
+                      <Users size={14} className="text-slate-500 shrink-0" />
                       Also present:
                       {otherAttendees.map((c, i) => (
-                        <span key={c.id} className="text-stone-700">
-                          {c.name}{i < otherAttendees.length - 1 ? ',' : ''}
+                        <span key={c!.id} className="text-slate-700 font-semibold">
+                          {c!.name}{i < otherAttendees.length - 1 ? ',' : ''}
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                <div className="flex items-center gap-2 ml-auto sm:ml-0 shrink-0">
                   <button
                     id="edit-note-btn"
                     onClick={() => startEdit(selectedNote)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-stone-300 rounded-lg text-stone-700 hover:bg-stone-50 text-xs font-semibold transition"
+                    className="flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 text-xs font-bold transition shadow-2xs"
                   >
                     <Edit3 size={13} /> Edit Note
                   </button>
                   {deleteConfirmId === selectedNote.id ? (
-                    <div className="flex items-center gap-1 border border-rose-200 bg-rose-50 rounded-lg pr-1 pl-3 py-0.5 animate-fade-in">
-                      <span className="text-[10px] uppercase font-bold text-rose-600 tracking-wider mr-1">Confirm</span>
+                    <div className="flex items-center gap-1 border border-rose-200 bg-rose-50 rounded-xl pr-1.5 pl-3 py-1 animate-fade-in">
+                      <span className="text-[10px] uppercase font-bold text-rose-600 tracking-wider mr-1.5">Confirm</span>
                       <button
                         onClick={() => executeDelete(selectedNote.id)}
-                        className="px-3 py-1 bg-rose-600 text-white rounded-md hover:bg-rose-700 text-xs font-semibold transition"
+                        className="px-3 py-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 text-xs font-semibold transition shadow-sm"
                       >
                         Yes
                       </button>
                       <button
                         onClick={() => setDeleteConfirmId(null)}
-                        className="px-3 py-1 bg-stone-200 text-stone-700 rounded-md hover:bg-stone-300 text-xs font-semibold transition"
+                        className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-xs font-semibold transition"
                       >
                         No
                       </button>
@@ -772,7 +772,7 @@ export default function NotesManager({
                     <button
                       id="delete-note-btn"
                       onClick={() => setDeleteConfirmId(selectedNote.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 text-rose-600 rounded-lg hover:bg-rose-50 text-xs font-semibold transition animate-fade-in"
+                      className="flex items-center gap-1.5 px-3.5 py-2 border border-rose-200 text-rose-600 rounded-xl hover:bg-rose-50 text-xs font-bold transition animate-fade-in shadow-2xs"
                     >
                       <Trash2 size={13} /> Delete
                     </button>
@@ -781,45 +781,45 @@ export default function NotesManager({
               </div>
 
               {/* Sentiment & Engagement metrics panel */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-stone-50 p-4 rounded-xl border border-stone-200/60 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/70 p-5 rounded-2xl border border-slate-100/80 mb-6">
                 <div>
-                  <div className="flex justify-between text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">
+                  <div className="flex justify-between text-xs font-bold text-slate-550 uppercase tracking-wider mb-2 font-mono">
                     <span>Meeting Sentiment</span>
-                    <span className="font-mono text-stone-900">{selectedNote.sentimentScore}/10</span>
+                    <span className="font-mono text-slate-900 font-bold">{selectedNote.sentimentScore}/10</span>
                   </div>
                   
                   {/* Gauge Bar */}
-                  <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-200/70 h-2.5 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full rounded-full ${
-                        selectedNote.sentimentScore >= 8 ? 'bg-emerald-500' :
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        selectedNote.sentimentScore >= 8 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' :
                         selectedNote.sentimentScore >= 6 ? 'bg-green-400' :
-                        selectedNote.sentimentScore >= 4 ? 'bg-stone-400' : 'bg-rose-500'
+                        selectedNote.sentimentScore >= 4 ? 'bg-slate-400' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
                       }`}
                       style={{ width: `${selectedNote.sentimentScore * 10}%` }}
                     />
                   </div>
 
-                  <span className={`inline-block text-[10px] mt-1.5 px-1.5 py-0.5 font-semibold text-stone-600 rounded border ${getSentimentLabel(selectedNote.sentimentScore).bg}`}>
-                    {getSentimentLabel(selectedNote.sentimentScore).text.toUpperCase()}
+                  <span className={`inline-block text-[10px] mt-2.5 px-2 py-0.5 font-bold rounded-full border tracking-wide uppercase ${getSentimentLabel(selectedNote.sentimentScore).bg}`}>
+                    {getSentimentLabel(selectedNote.sentimentScore).text}
                   </span>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">
+                  <div className="flex justify-between text-xs font-bold text-slate-550 uppercase tracking-wider mb-2 font-mono">
                     <span>Stakeholder Engagement</span>
-                    <span className="font-mono text-stone-900">{selectedNote.engagementLevel}/10</span>
+                    <span className="font-mono text-slate-900 font-bold">{selectedNote.engagementLevel}/10</span>
                   </div>
                   
                   {/* Engagement bar */}
-                  <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-200/70 h-2.5 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-stone-800 rounded-full"
+                      className="h-full bg-slate-800 rounded-full transition-all duration-500"
                       style={{ width: `${selectedNote.engagementLevel * 10}%` }}
                     />
                   </div>
 
-                  <p className="text-[10px] text-stone-500 mt-1.5 italic font-medium">
+                  <p className="text-[10px] text-slate-500 mt-2.5 italic font-medium">
                     {selectedNote.engagementLevel >= 8 ? 'Strong focus and collaborative exploration' :
                      selectedNote.engagementLevel >= 5 ? 'Standard dialogue attendance' : 'Low feedback or frequent disruption'}
                   </p>
@@ -829,14 +829,14 @@ export default function NotesManager({
               {/* Core takeaways bulleted */}
               {selectedNote.keyPoints.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2.5 flex items-center gap-1">
-                    <CheckSquare size={13} /> Logged Key Takeowners & Critical Decisions
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono mb-3 flex items-center gap-1.5">
+                    <CheckSquare size={14} className="text-slate-500" /> Logged Key Takeaways & Critical Decisions
                   </h4>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {selectedNote.keyPoints.map((pt, i) => (
-                      <li key={i} className="flex gap-2 text-stone-850 text-sm leading-relaxed pl-2 border-l-2 border-stone-800">
-                        <span className="font-semibold text-stone-900 select-none">{i+1}.</span>
-                        <span>{pt}</span>
+                      <li key={i} className="flex gap-2.5 text-slate-800 text-xs leading-relaxed pl-3 border-l-2 border-slate-900">
+                        <span className="font-bold text-slate-950 select-none font-mono">{String(i+1).padStart(2, '0')}.</span>
+                        <span className="font-medium">{pt}</span>
                       </li>
                     ))}
                   </ul>
@@ -845,35 +845,35 @@ export default function NotesManager({
 
               {/* Narrative block */}
               <div className="mb-6 flex-1">
-                <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Smile size={13} /> Conversational Narrative
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono mb-2 flex items-center gap-1.5">
+                  <Smile size={14} className="text-slate-500" /> Conversational Narrative
                 </h4>
-                <div className="text-stone-700 text-sm leading-relaxed whitespace-pre-line bg-stone-50/40 p-4 rounded-xl border border-stone-150">
+                <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/30 p-4.5 rounded-2xl border border-slate-100 font-medium">
                   {selectedNote.content}
                 </div>
               </div>
 
               {/* Inline AI insights summary if present */}
               {selectedNote.insights ? (
-                <div id="ai-insight-panel" className="bg-gradient-to-br from-stone-50 to-stone-100/50 rounded-xl p-4 border border-stone-200 flex items-start gap-3 mt-4">
-                  <div className="p-2 bg-stone-900 rounded-lg text-white shrink-0">
-                    <Sparkles size={16} />
+                <div id="ai-insight-panel" className="bg-gradient-to-br from-indigo-50/40 to-blue-50/20 rounded-2xl p-5 border border-indigo-100/40 flex items-start gap-4 mt-4 shadow-sm">
+                  <div className="p-2.5 bg-slate-950 rounded-xl text-white shrink-0 shadow-md">
+                    <Sparkles size={16} className="text-amber-400 fill-amber-400/20 animate-pulse" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-semibold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 font-mono">
                       Personal Coach AI Analysis
                     </h4>
-                    <p className="text-xs text-stone-650 mt-1 leading-relaxed">
+                    <p className="text-xs text-slate-655 mt-2 leading-relaxed font-semibold">
                       {selectedNote.insights}
                     </p>
                     {selectedNote.coachingOpportunities && selectedNote.coachingOpportunities.length > 0 && (
-                      <div className="mt-3">
-                        <h5 className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                          <GraduationCap size={12} /> Coaching Opportunities
+                      <div className="mt-4 pt-3.5 border-t border-indigo-100/40">
+                        <h5 className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest font-mono mb-2 flex items-center gap-1.5">
+                          <GraduationCap size={13} /> Coaching Opportunities
                         </h5>
-                        <ul className="space-y-1">
+                        <ul className="space-y-1.5">
                           {selectedNote.coachingOpportunities.map((tip, i) => (
-                            <li key={i} className="text-xs text-blue-900 bg-blue-50 border border-blue-150 rounded-lg px-2.5 py-1.5">{tip}</li>
+                            <li key={i} className="text-xs text-blue-900 bg-blue-50/80 border border-blue-100/40 rounded-xl px-3.5 py-2 font-medium">{tip}</li>
                           ))}
                         </ul>
                       </div>
@@ -881,8 +881,8 @@ export default function NotesManager({
                   </div>
                 </div>
               ) : (
-                <div className="bg-stone-50 rounded-xl p-3 border border-dashed border-stone-200 text-center text-xs text-stone-400 mt-4 flex items-center justify-center gap-2">
-                  <MessageSquareCode size={14} className="text-stone-400" />
+                <div className="bg-slate-50 rounded-2xl p-4 border border-dashed border-slate-200 text-center text-xs text-slate-400 mt-4 flex items-center justify-center gap-2 font-medium">
+                  <MessageSquareCode size={15} className="text-slate-450" />
                   <span>No AI insights generated for this note yet. Open <strong>Edit Note</strong> and use "Generate Insights from Conversation".</span>
                 </div>
               )}
