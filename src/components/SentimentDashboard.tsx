@@ -36,19 +36,41 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
   const [companyFilter, setCompanyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | ''>('');
   const [dateRange, setDateRange] = useState<typeof DATE_RANGES[number]['key']>('all');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const formatDateReadable = (dateStr: string) => {
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const year = parts[0];
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        if (monthIdx >= 0 && monthIdx < 12) {
+          return `${monthNames[monthIdx]} ${day}, ${year}`;
+        }
+      }
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+    } catch (e) {}
+    return dateStr;
+  };
 
   const availableCategories = useMemo(
     () => Array.from(new Set(notes.map(n => n.category))).sort(),
     [notes]
   );
 
-  const hasActiveFilters = !!(contactFilter || companyFilter || categoryFilter || dateRange !== 'all');
+  const hasActiveFilters = !!(contactFilter || companyFilter || categoryFilter || dateRange !== 'all' || selectedDate);
 
   const clearFilters = () => {
     setContactFilter('');
     setCompanyFilter('');
     setCategoryFilter('');
     setDateRange('all');
+    setSelectedDate(null);
   };
 
   // 1. Apply filters
@@ -171,6 +193,21 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
     return { best, worst: worst.id === best.id ? null : worst };
   }, [filteredNotes]);
 
+  // Click handler for AreaChart
+  const handleChartClick = (state: any) => {
+    console.log("Chart click state:", state);
+    if (state && state.activeLabel) {
+      setSelectedDate(state.activeLabel);
+    } else {
+      setSelectedDate(null);
+    }
+  };
+
+  const notesForList = useMemo(() => {
+    if (!selectedDate) return filteredNotes;
+    return filteredNotes.filter(n => n.date === selectedDate);
+  }, [filteredNotes, selectedDate]);
+
   // Custom Tooltip component for Recharts
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -288,12 +325,19 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
           ))}
         </div>
         {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-          >
-            <X size={12} /> Clear filters
-          </button>
+          <div className="ml-auto flex items-center gap-3">
+            {selectedDate && (
+              <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-md px-2.5 py-1">
+                Showing notes from {formatDateReadable(selectedDate)}
+              </span>
+            )}
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+            >
+              <X size={12} /> Clear filters
+            </button>
+          </div>
         )}
       </div>
 
@@ -383,6 +427,8 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
                 <AreaChart
                   data={chartData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  onClick={handleChartClick}
+                  style={{ cursor: 'pointer' }}
                 >
                   <defs>
                     <linearGradient id="colorSentiment" x1="0" y1="0" x2="0" y2="1">
@@ -572,6 +618,64 @@ export default function SentimentDashboard({ notes, contacts, companies, persona
             </div>
           )}
         </div>
+      </div>
+
+      {/* Filtered Notes Section */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-7 flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">
+              {selectedDate ? `Meetings Logged on ${formatDateReadable(selectedDate)}` : "Meetings Logged / Tracked Details"}
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              {selectedDate
+                ? "Clicking clear filters or the graph background will show all active period meetings."
+                : "Clicking a point on the engagement chart above will isolate notes logged on that specific date."}
+            </p>
+          </div>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-1 rounded-md">
+            {notesForList.length} Note{notesForList.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {notesForList.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 italic text-xs">
+            No meeting notes logged for the current active selection.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {notesForList.map(n => {
+              const attendees = getNoteAttendeeIds(n).map(id => contacts.find(c => c.id === id)?.name).filter(Boolean);
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => onSelectNote && onSelectNote(n.id)}
+                  className={`p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-200 transition-all cursor-pointer flex flex-col justify-between`}
+                >
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-mono text-slate-400 font-semibold">{n.date}</span>
+                      <span className="text-[9px] px-2 py-0.5 bg-slate-200 text-slate-700 font-semibold rounded uppercase tracking-wider">
+                        {n.category}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm leading-snug line-clamp-1">{n.title}</h4>
+                    <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+                      With: {attendees.length > 0 ? attendees.join(', ') : 'No linked contact'}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-3 leading-relaxed line-clamp-3 bg-white/70 p-3 rounded-xl border border-slate-100/50">
+                      {noteExcerpt(n)}
+                    </p>
+                  </div>
+                  <div className="flex gap-4 border-t border-slate-100 pt-3 mt-4 text-[10px] font-bold">
+                    <span className="text-emerald-600 font-semibold">Sentiment: {n.sentimentScore}/10</span>
+                    <span className="text-blue-600 font-semibold">Engagement: {n.engagementLevel}/10</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Spotlight notes */}
